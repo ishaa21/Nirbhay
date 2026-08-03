@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="nirbhay">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>nirbhay</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Tailwind CDN & Fonts for Splash Screen -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "tertiary-fixed-dim": "#aacae8",
+            "tertiary-fixed": "#cce5ff",
+            "primary-container": "#48293d",
+            "on-background": "#1b1b1c",
+            "on-primary-container": "#b98fa7",
+            "surface-container-highest": "#e4e2e3",
+            "on-surface-variant": "#4e4449",
+            "secondary-container": "#f2d9e4",
+            "surface": "#fcf8f9",
+            "on-primary-fixed-variant": "#5e3c51",
+            "on-primary-fixed": "#2d1225",
+            "outline": "#807479",
+            "on-secondary-container": "#705d67",
+            "secondary": "#6c5963",
+            "on-surface": "#1b1b1c",
+            "background": "#fcf8f9",
+            "on-secondary-fixed-variant": "#53424b",
+            "error": "#ba1a1a",
+            "primary-fixed": "#ffd8ed",
+            "on-secondary-fixed": "#25171f",
+            "primary": "#301427",
+            "tertiary-container": "#14364e",
+            "surface-container": "#f0edee",
+            "secondary-fixed-dim": "#d8c0cb",
+            "on-tertiary-fixed-variant": "#2a4a63",
+            "inverse-surface": "#303031",
+            "inverse-on-surface": "#f3f0f1",
+            "secondary-fixed": "#f5dce7",
+            "on-primary": "#ffffff",
+            "on-error": "#ffffff",
+            "surface-tint": "#785369",
+            "surface-container-lowest": "#ffffff",
+            "surface-bright": "#fcf8f9",
+            "tertiary": "#002035",
+            "error-container": "#ffdad6",
+            "surface-dim": "#dcd9da",
+            "on-tertiary-fixed": "#001e31",
+            "surface-variant": "#e4e2e3",
+            "surface-container-low": "#f6f3f4",
+            "on-error-container": "#93000a",
+            "inverse-primary": "#e7bad3",
+            "primary-fixed-dim": "#e7bad3",
+            "outline-variant": "#d1c3c9",
+            "on-tertiary-container": "#809fbc",
+            "on-secondary": "#ffffff",
+            "surface-container-high": "#eae7e8",
+            "on-tertiary": "#ffffff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "xs": "4px",
+            "margin-desktop": "64px",
+            "xl": "32px",
+            "lg": "24px",
+            "sm": "8px",
+            "base": "8px",
+            "md": "16px",
+            "gutter": "16px",
+            "margin-mobile": "16px"
+          },
+          "fontFamily": {
+            "label-sm": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "title-lg": ["Plus Jakarta Sans"],
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500"}],
+            "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600"}],
+            "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+            "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+            "title-lg": ["22px", {"lineHeight": "28px", "fontWeight": "600"}],
+            "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+            "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+            "display-lg": ["57px", {"lineHeight": "64px", "letterSpacing": "-0.25px", "fontWeight": "700"}]
+          }
+        },
+      },
+    }
+  </script>
+  <style>
+    #splash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 99999;
+      background-color: #fcf8f9;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease-out;
+    }
+
+    .fade-in {
+      animation: fadeIn 1.2s ease-out forwards;
+    }
+
+    .scale-in {
+      animation: scaleIn 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes scaleIn {
+      from { transform: scale(0.92); }
+      to { transform: scale(1); }
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .serene-vignette {
+      background: radial-gradient(circle at center, #ffffff 0%, #fcf8f9 100%);
+    }
+  </style>
+</head>
+<body>
+  <!-- Splash Screen Overlay -->
+  <div id="splash-overlay" class="serene-vignette">
+    <main class="relative w-full h-screen flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
+      <div class="fade-in scale-in flex flex-col items-center justify-center space-y-8">
+        <div class="relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center">
+          <img alt="Nirbhay Brand Logo" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOeuJEWtkF2yj2r2hf8mxz16iv7Agds7psA3vSeh4y8hYXFvH2NaZfnSKCzUGsxTM0qcehk1_ykGdEpbNUnEsE6nflvlnsdsLOdIzLi4MAoXNKe9cwdzAHMBlR60CMcK7HVZxP_Fteq_QjApqDkgn-LL-bo8VmFA5N-ZfAbAOAi57ZeSxkQrRKpMG7anzp-il8qq605adNJ2kuevZ06aKTOW6obHs3kFIVOZ64EAOeD9p35HMtuQ0nw9LnUNTb2jM6VfM"/>
+        </div>
+        <div class="w-32 h-[1px] bg-outline-variant/30 overflow-hidden mt-12 rounded-full">
+          <div class="h-full bg-primary transition-all duration-75 ease-linear" id="web-progress-bar" style="width: 0%"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const progressBar = document.getElementById('web-progress-bar');
+        let width = 0;
+        const interval = setInterval(() => {
+            if (width >= 95) {
+                clearInterval(interval);
+            } else {
+                const increment = Math.random() * 2;
+                width += increment;
+                if(width > 95) width = 95;
+                if (progressBar) {
+                  progressBar.style.width = width + '%';
+                }
+            }
+        }, 30);
+    });
+  </script>
+
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
