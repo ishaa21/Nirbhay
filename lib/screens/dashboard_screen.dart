@@ -77,7 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 768;
+    final isDesktop = screenWidth >= 1024;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -334,11 +334,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(width: 24),
         // Workflow section (5/12 width)
-        const Expanded(
+        Expanded(
           flex: 5,
-          child: SizedBox(
-            height: 380, // Fixed height for alignment match
-            child: WorkflowPanel(),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 380), // Responsive min-height instead of fixed height
+            child: const WorkflowPanel(),
           ),
         ),
       ],
@@ -359,9 +359,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 32),
-        const SizedBox(
-          height: 340,
-          child: WorkflowPanel(),
+        Container(
+          constraints: const BoxConstraints(minHeight: 340), // Responsive min-height instead of fixed height
+          child: const WorkflowPanel(),
         ),
       ],
     );

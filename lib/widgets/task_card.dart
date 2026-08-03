@@ -75,11 +75,15 @@ class TaskCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   // Date and Assignees Stack
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       // Due Date
                       Row(
+                        mainAxisSize: MainAxisSize.min, // Limit Row width inside Wrap
                         children: [
                           Icon(
                             Icons.schedule,

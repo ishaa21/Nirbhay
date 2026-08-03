@@ -9,13 +9,13 @@ class TopAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     // Determine screen width for responsive rendering
     final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 768;
+    final isDesktop = screenWidth >= 1024;
 
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          height: preferredSize.height,
+          height: preferredSize.height + MediaQuery.of(context).padding.top,
           decoration: BoxDecoration(
             color: const Color(0xFF0F172A).withOpacity(0.6),
             border: Border(

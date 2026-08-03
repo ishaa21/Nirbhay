@@ -36,51 +36,52 @@ class WorkflowPanel extends StatelessWidget {
                   color: AppColors.onSurface,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16), // Reduced from 24
               Expanded(
-                child: Center(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Vertical connecting line
-                          Positioned(
-                            top: 30,
-                            bottom: 60,
-                            width: 1.5,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    AppColors.primary,
-                                    AppColors.secondary,
-                                    Colors.transparent,
-                                  ],
-                                  stops: [0.0, 0.5, 1.0],
-                                ),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: Container(
+                    height: 280, // Stable height for line stack alignment
+                    alignment: Alignment.center,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Vertical connecting line
+                        Positioned(
+                          top: 20,
+                          bottom: 50,
+                          width: 1.5,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  AppColors.primary,
+                                  AppColors.secondary,
+                                  Colors.transparent,
+                                ],
+                                stops: [0.0, 0.5, 1.0],
                               ),
                             ),
                           ),
+                        ),
 
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Node 1: AI Engine
-                              _buildEngineNode(),
-                              
-                              // Node 2: Integration Matrix
-                              _buildIntegrationMatrix(),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Node 1: AI Engine
+                            _buildEngineNode(),
+                            
+                            // Node 2: Integration Matrix
+                            _buildIntegrationMatrix(),
 
-                              // Node 3: Project Launch Card
-                              _buildLaunchCard(),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
+                            // Node 3: Project Launch Card
+                            _buildLaunchCard(),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
