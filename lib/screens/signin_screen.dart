@@ -55,15 +55,6 @@ class _SignInScreenState extends State<SignInScreen> {
         _isLoading = false;
       });
 
-      // Special verification hook: type 'error' to simulate an HTTP error card
-      final emailInput = _emailController.text.trim().toLowerCase();
-      if (emailInput.contains('error')) {
-        setState(() {
-          _errorMessage = 'Invalid email or password. Please verify your credentials and try again.';
-        });
-        return;
-      }
-
       // Show success feedback
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -331,11 +322,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Email Address is required';
-                  }
-                  final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                  if (!emailRegex.hasMatch(value.trim())) {
-                    return 'Enter a valid email address';
+                    return 'Email is required';
                   }
                   return null;
                 },
