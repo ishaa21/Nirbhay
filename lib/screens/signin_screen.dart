@@ -1,61 +1,46 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
-import 'signin_screen.dart';
+import 'signup_screen.dart';
 
-class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  State<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  final TextEditingController _nameController = TextEditingController();
+
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
-  final FocusNode _phoneFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
 
   bool _obscurePassword = true;
-  bool _agreeToTerms = false;
   bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     _passwordController.dispose();
-    
-    _nameFocus.dispose();
+
     _emailFocus.dispose();
-    _phoneFocus.dispose();
     _passwordFocus.dispose();
-    
+
     super.dispose();
   }
 
-  void _handleSignUp() {
+  void _handleSignIn() {
     // Clear any previous error message
     setState(() {
       _errorMessage = null;
     });
 
     if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    if (!_agreeToTerms) {
-      setState(() {
-        _errorMessage = 'You must agree to the Terms of Service and Privacy Policy.';
-      });
       return;
     }
 
@@ -70,10 +55,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _isLoading = false;
       });
 
-      // Special verification hook: type 'Error' to simulate an HTTP error card
-      if (_nameController.text.trim().toLowerCase() == 'error') {
+      // Special verification hook: type 'error' to simulate an HTTP error card
+      final emailInput = _emailController.text.trim().toLowerCase();
+      if (emailInput.contains('error')) {
         setState(() {
-          _errorMessage = 'Network request failed: The auth server took too long to respond. Please check your internet connection and try again.';
+          _errorMessage = 'Invalid email or password. Please verify your credentials and try again.';
         });
         return;
       }
@@ -83,7 +69,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         const SnackBar(
           backgroundColor: Color(0xFF301427),
           content: Text(
-            'Account created successfully! Redirecting...',
+            'Signed in successfully! Welcome back.',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
@@ -145,7 +131,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         prefixIconColor: const Color(0xFF807479),
         suffixIconColor: const Color(0xFF4E4449),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), // Ensures 50-54px field height
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       ),
     );
 
@@ -196,28 +182,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   child: Container(
-                    constraints: const BoxConstraints(maxWidth: 440), // Slightly narrower for a cleaner premium feel
+                    constraints: const BoxConstraints(maxWidth: 440),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Header Section
                         _buildHeader(),
-                        const SizedBox(height: 16), // Reduced gap to form
+                        const SizedBox(height: 16),
 
-                        // Signup Form Card
+                        // Signin Form Card
                         _buildFormCard(),
-                        const SizedBox(height: 16), // Reduced gap
+                        const SizedBox(height: 16),
 
                         // Error Card displayed above social login buttons
                         _buildErrorCard(),
 
                         // Social Authentication Separator & Buttons
                         _buildSocialSection(),
-                        const SizedBox(height: 24), // Reduced spacing
+                        const SizedBox(height: 24),
 
                         // Footer Navigation Links
                         _buildFooter(),
-                        const SizedBox(height: 12), // Buffer so it doesn't clip
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),
@@ -225,7 +211,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             ),
 
-            // 3. Support Help FAB (Optional addition for Safety context)
+            // 3. Support Help FAB
             Positioned(
               bottom: 20,
               right: 20,
@@ -251,7 +237,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        // Logo Container (Slightly smaller, 64px instead of 80px)
+        // Logo Container
         Container(
           width: 64,
           height: 64,
@@ -278,22 +264,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 10), // Reduced gap
+        const SizedBox(height: 10),
         const Text(
-          'Join Nirbhay',
+          'Welcome Back',
           style: TextStyle(
-            fontSize: 24, // Slightly smaller and cleaner
+            fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Color(0xFF301427), // primary
             letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 4), // Reduced gap
+        const SizedBox(height: 4),
         const Text(
-          'Create an account to start your journey towards total security and peace of mind.',
+          'Sign in to continue your journey towards total security and peace of mind.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 13, // Slightly smaller for premium look
+            fontSize: 13,
             color: Color(0xFF4E4449), // on-surface-variant
             height: 1.35,
           ),
@@ -316,43 +302,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
           )
         ],
       ),
-      padding: const EdgeInsets.all(16), // Reduced card padding
+      padding: const EdgeInsets.all(16),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Full Name Input
-            const Text(
-              'Full Name',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1B1B1C),
-              ),
-            ),
-            const SizedBox(height: 4), // Reduced label gap
-            _FocusScaleWrapper(
-              focusNode: _nameFocus,
-              child: TextFormField(
-                controller: _nameController,
-                focusNode: _nameFocus,
-                keyboardType: TextInputType.name,
-                style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Enter your full name',
-                  prefixIcon: Icon(Icons.person_outline, size: 20),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Full Name is required';
-                  }
-                  return null;
-                },
-              ),
-            ),
-            const SizedBox(height: 10), // Reduced field spacing
-
             // Email Address Input
             const Text(
               'Email Address',
@@ -386,38 +341,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 10),
-
-            // Phone Number Input
-            const Text(
-              'Phone Number',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1B1B1C),
-              ),
-            ),
-            const SizedBox(height: 4),
-            _FocusScaleWrapper(
-              focusNode: _phoneFocus,
-              child: TextFormField(
-                controller: _phoneController,
-                focusNode: _phoneFocus,
-                keyboardType: TextInputType.phone,
-                style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: '+91 00000-00000',
-                  prefixIcon: Icon(Icons.call_outlined, size: 20),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Phone number is required';
-                  }
-                  return null;
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
             // Password Input
             const Text(
@@ -437,7 +361,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 obscureText: _obscurePassword,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Create a strong password',
+                  hintText: 'Enter your password',
                   prefixIcon: const Icon(Icons.lock_outline, size: 20),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -455,74 +379,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Password is required';
                   }
-                  if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
-                  }
                   return null;
                 },
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
 
-            // Terms Checkbox (More compact)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Checkbox(
-                    value: _agreeToTerms,
-                    activeColor: const Color(0xFF301427),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    onChanged: (val) {
-                      setState(() {
-                        _agreeToTerms = val ?? false;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF4E4449),
-                        height: 1.3,
-                      ),
-                      children: [
-                        TextSpan(text: 'I agree to the '),
-                        TextSpan(
-                          text: 'Terms',
-                          style: TextStyle(
-                            color: Color(0xFF301427),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextSpan(text: ' and '),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          style: TextStyle(
-                            color: Color(0xFF301427),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextSpan(text: '.'),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Create Account Submit Button (Reduced height to 48px)
+            // Sign In Submit Button
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleSignUp,
+                onPressed: _isLoading ? null : _handleSignIn,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF301427),
                   foregroundColor: Colors.white,
@@ -541,7 +409,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       )
                     : const Text(
-                        'Create Account',
+                        'Sign In',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -562,7 +430,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFDAD6), // light red background from error-container
+        color: const Color(0xFFFFDAD6),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFBA1A1A).withOpacity(0.5), width: 1),
       ),
@@ -606,7 +474,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildSocialSection() {
     return Column(
       children: [
-        // "Or sign up with" divider
+        // "Or continue with" divider
         Row(
           children: [
             const Expanded(
@@ -615,7 +483,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                'OR SIGN UP WITH',
+                'OR CONTINUE WITH',
                 style: TextStyle(
                   fontSize: 10.5,
                   color: const Color(0xFF807479),
@@ -629,7 +497,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12), // Reduced gap
+        const SizedBox(height: 12),
 
         // Google button
         SizedBox(
@@ -680,7 +548,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text(
-          'Already have an account? ',
+          "Don't have an account? ",
           style: TextStyle(
             fontSize: 13.5,
             color: Color(0xFF4E4449),
@@ -690,7 +558,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           onTap: () {
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) => const SignInScreen(),
+                pageBuilder: (context, animation, secondaryAnimation) => const SignUpScreen(),
                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
                   return FadeTransition(opacity: animation, child: child);
                 },
@@ -699,7 +567,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             );
           },
           child: const Text(
-            'Sign In',
+            'Sign Up',
             style: TextStyle(
               fontSize: 13.5,
               color: Color(0xFF301427),
@@ -711,7 +579,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ],
     );
   }
-
 }
 
 // Custom widget to animate focus scaling (increases size by 1% on focus)
