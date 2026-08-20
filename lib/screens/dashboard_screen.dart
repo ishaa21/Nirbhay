@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import 'map_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,6 +11,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   int _selectedNavIndex = 0;
+  // ignore: unused_field
   bool _sosPressing = false;
   late AnimationController _sosAnimController;
   late Animation<double> _sosScaleAnim;
@@ -45,8 +46,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Theme(
       data: ThemeData(
         useMaterial3: true,
@@ -62,37 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               _buildTopBar(),
 
               // ── Scrollable Body ──────────────────────────────────
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-
-                      // Greeting
-                      _buildGreeting(),
-                      const SizedBox(height: 28),
-
-                      // SOS Button
-                      _buildSOSButton(),
-                      const SizedBox(height: 36),
-
-                      // Safety Suite
-                      _buildSectionLabel('SAFETY SUITE'),
-                      const SizedBox(height: 12),
-                      _buildSafetyGrid(),
-                      const SizedBox(height: 32),
-
-                      // Currently Safe Area
-                      _buildSectionLabel('CURRENTLY SAFE AREA'),
-                      const SizedBox(height: 12),
-                      _buildMapCard(),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
+              Expanded(child: _buildBody()),
 
               // ── Bottom Navigation ────────────────────────────────
               _buildBottomNav(),
@@ -127,8 +96,11 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               IconButton(
                 onPressed: () {},
-                icon: const Icon(Icons.notifications_outlined,
-                    size: 24, color: Color(0xFF1B1B1C)),
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  size: 24,
+                  color: Color(0xFF1B1B1C),
+                ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -211,11 +183,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               gradient: const RadialGradient(
                 center: Alignment(0.1, -0.2),
                 radius: 0.85,
-                colors: [Color(0xFF4A1D30), Color(0xFF2A1020)],
+                colors: [Color(0xFF4A1D30), _sosDark],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF2A1020).withOpacity(0.35),
+                  color: _sosDark.withOpacity(0.35),
                   blurRadius: 32,
                   spreadRadius: 8,
                   offset: const Offset(0, 8),
@@ -272,7 +244,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: _textSecondary)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: _textSecondary),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: _accent),
@@ -378,10 +353,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Simulated map background using a grid pattern
-          CustomPaint(
-            size: const Size(double.infinity, 160),
-            painter: _MapPainter(),
+          // Real map background image
+          Positioned.fill(
+            child: Image.network(
+              'https://lh3.googleusercontent.com/aida-public/AB6AXuCMNpoYuUMwvEnFQqv9iFS7jmGSEAb7Sr7BlZKYtsI4GXDyXhWxc-ZZ6wpIz4Hsw9g9D7oQkcWUR1_fyyZqi5bmrXYbH1nZspCzZBt_J82Z1FCec9qfsAigv9N_c2MQ8QZy6h03WHqoQGoib8DdpQ3xEOythfuxhtKH3lusXv9baA96J8lxzlMeYUJp5c42nRepht63An0WKi1uxLw9Om20cvDTQrjtCR_byMoZnEyO56i5xP6-b8NraOxy0nNdjGqY-YrLTe9rHjQ8',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: const Color(0xFFF0EBE8),
+                  child: const Center(
+                    child: Icon(Icons.map, size: 36, color: Colors.grey),
+                  ),
+                );
+              },
+            ),
           ),
 
           // Safe zone circle
@@ -393,7 +378,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 shape: BoxShape.circle,
                 color: _mapSafe.withOpacity(0.22),
                 border: Border.all(
-                    color: _mapSafe.withOpacity(0.5), width: 1.5),
+                  color: _mapSafe.withOpacity(0.5),
+                  width: 1.5,
+                ),
               ),
               child: Center(
                 child: Container(
@@ -420,8 +407,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             top: 8,
             left: 10,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.85),
                 borderRadius: BorderRadius.circular(6),
@@ -440,78 +426,106 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ─────────────────────────────────────────────────────────────────
   //  Bottom Navigation
   // ─────────────────────────────────────────────────────────────────
-  static const List<Map<String, dynamic>> _navItems = [
-    {'icon': Icons.home_outlined, 'label': 'Home'},
-    {'icon': Icons.map_outlined, 'label': 'Map'},
-    {'icon': Icons.people_outline, 'label': 'Community'},
-    {'icon': Icons.contacts_outlined, 'label': 'Contacts'},
-    {'icon': Icons.person_outline, 'label': 'Profile'},
-  ];
-
   Widget _buildBottomNav() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-            top: BorderSide(color: const Color(0xFFE5DFE2), width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
-          ),
+      margin: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: bottomPadding > 0 ? bottomPadding : 16,
+      ),
+      child: CurvedNavigationBar(
+        currentIndex: _selectedNavIndex,
+        activeColor: _navActiveBg,
+        icons: const [
+          Icons.home_outlined,
+          Icons.map_outlined,
+          Icons.people_outline,
+          Icons.contact_phone_outlined,
+          Icons.person_outline,
+        ],
+        onTap: (index) {
+          setState(() {
+            _selectedNavIndex = index;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    switch (_selectedNavIndex) {
+      case 0:
+        return _buildHomePage();
+      case 1:
+        return const MapScreen();
+      case 2:
+        return _buildPlaceholderPage('Community');
+      case 3:
+        return _buildPlaceholderPage('Contacts');
+      case 4:
+        return _buildPlaceholderPage('Profile');
+      default:
+        return _buildHomePage();
+    }
+  }
+
+  Widget _buildHomePage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+
+          // Greeting
+          _buildGreeting(),
+          const SizedBox(height: 28),
+
+          // SOS Button
+          _buildSOSButton(),
+          const SizedBox(height: 36),
+
+          // Safety Suite
+          _buildSectionLabel('SAFETY SUITE'),
+          const SizedBox(height: 12),
+          _buildSafetyGrid(),
+          const SizedBox(height: 32),
+
+          // Currently Safe Area
+          _buildSectionLabel('CURRENTLY SAFE AREA'),
+          const SizedBox(height: 12),
+          _buildMapCard(),
+          const SizedBox(height: 24),
         ],
       ),
-      padding: EdgeInsets.only(
-        top: 8,
-        bottom: MediaQuery.of(context).padding.bottom > 0
-            ? MediaQuery.of(context).padding.bottom
-            : 8,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(_navItems.length, (index) {
-          final isSelected = index == _selectedNavIndex;
-          final item = _navItems[index];
-          return GestureDetector(
-            onTap: () => setState(() => _selectedNavIndex = index),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? _navActiveBg
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    item['icon'] as IconData,
-                    size: 22,
-                    color: isSelected
-                        ? Colors.white
-                        : const Color(0xFF9E8E95),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item['label'] as String,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF9E8E95),
-                    ),
-                  ),
-                ],
-              ),
+    );
+  }
+
+  Widget _buildPlaceholderPage(String title) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            title == 'Community'
+                ? Icons.people_outline
+                : title == 'Contacts'
+                ? Icons.contact_phone_outlined
+                : Icons.person_outline,
+            size: 48,
+            color: const Color(0xFF807479),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$title Page',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF807479),
             ),
-          );
-        }),
+          ),
+        ],
       ),
     );
   }
@@ -557,8 +571,7 @@ class _SafetyCardState extends State<_SafetyCard> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black
-                    .withOpacity(_hovered ? 0.07 : 0.03),
+                color: Colors.black.withOpacity(_hovered ? 0.07 : 0.03),
                 blurRadius: _hovered ? 14 : 6,
                 offset: const Offset(0, 3),
               ),
@@ -599,8 +612,11 @@ class _SafetyCardState extends State<_SafetyCard> {
               // Arrow at bottom-right
               const Align(
                 alignment: Alignment.centerRight,
-                child: Icon(Icons.arrow_forward,
-                    size: 16, color: Color(0xFF6B6570)),
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                  color: Color(0xFF6B6570),
+                ),
               ),
             ],
           ),
@@ -611,64 +627,277 @@ class _SafetyCardState extends State<_SafetyCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  Map Painter  (draws a simple street-map-style background)
+//  Curved Navigation Bar Widget
 // ─────────────────────────────────────────────────────────────────
-class _MapPainter extends CustomPainter {
+class CurvedNavigationBar extends StatefulWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<IconData> icons;
+  final Color activeColor;
+
+  const CurvedNavigationBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+    required this.icons,
+    required this.activeColor,
+  });
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFFF0EBE8);
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+  State<CurvedNavigationBar> createState() => _CurvedNavigationBarState();
+}
 
-    final roadPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 8
-      ..style = PaintingStyle.stroke;
+class _CurvedNavigationBarState extends State<CurvedNavigationBar> {
+  double _prevIndex = 0.0;
 
-    final minorPaint = Paint()
-      ..color = Colors.white.withOpacity(0.6)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    // Horizontal roads
-    for (double y = 20; y < size.height; y += 38) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), roadPaint);
-    }
-    // Vertical roads
-    for (double x = 20; x < size.width; x += 55) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), roadPaint);
-    }
-    // Minor diagonals
-    canvas.drawLine(
-        const Offset(0, 40), Offset(size.width * 0.5, size.height * 0.4),
-        minorPaint);
-    canvas.drawLine(
-        Offset(size.width * 0.6, 0),
-        Offset(size.width, size.height * 0.7),
-        minorPaint);
-
-    // Water-like blob (park/lake)
-    final waterPaint = Paint()
-      ..color = const Color(0xFFB3D9F5).withOpacity(0.6);
-    canvas.drawOval(
-      Rect.fromCenter(
-          center: Offset(size.width * 0.75, size.height * 0.65),
-          width: 60,
-          height: 38),
-      waterPaint,
-    );
-
-    // Green area
-    final greenPaint = Paint()
-      ..color = const Color(0xFFC8E6C9).withOpacity(0.5);
-    canvas.drawOval(
-      Rect.fromCenter(
-          center: Offset(size.width * 0.28, size.height * 0.45),
-          width: 70,
-          height: 50),
-      greenPaint,
-    );
+  @override
+  void initState() {
+    super.initState();
+    _prevIndex = widget.currentIndex.toDouble();
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  void didUpdateWidget(covariant CurvedNavigationBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _prevIndex = oldWidget.currentIndex.toDouble();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const double topPadding = 20.0;
+    const double barHeight = 65.0;
+    const double totalHeight = topPadding + barHeight; // 85.0
+    const double circleRadius = 26.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+        final double sidePadding = (width * 0.08).clamp(20.0, 28.0);
+
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(
+            begin: _prevIndex,
+            end: widget.currentIndex.toDouble(),
+          ),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOutCubic,
+          builder: (context, animatedIndex, child) {
+            // Calculate center X coordinates based on sidePadding
+            final double usableWidth = width - 2 * sidePadding;
+            final double activeX =
+                sidePadding +
+                (animatedIndex + 0.5) * (usableWidth / widget.icons.length);
+
+            return SizedBox(
+              width: width,
+              height: totalHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 1. Painted background with shadow and moving dip
+                  CustomPaint(
+                    size: Size(width, totalHeight),
+                    painter: _NavBarPainter(
+                      activeX: activeX,
+                      topPadding: topPadding,
+                      barHeight: barHeight,
+                      dipWidth: 72.0,
+                      dipDepth: circleRadius,
+                    ),
+                  ),
+
+                  // 2. Inactive/Flat Icons
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: topPadding,
+                    height: barHeight,
+                    child: Row(
+                      children: [
+                        SizedBox(width: sidePadding),
+                        ...List.generate(widget.icons.length, (index) {
+                          final double dist = (animatedIndex - index).abs();
+                          final double opacity = dist.clamp(0.0, 1.0);
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => widget.onTap(index),
+                              behavior: HitTestBehavior.opaque,
+                              child: Center(
+                                child: Opacity(
+                                  opacity: opacity,
+                                  child: Icon(
+                                    widget.icons[index],
+                                    size: 24,
+                                    color: const Color(0xFF9E8E95),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        SizedBox(width: sidePadding),
+                      ],
+                    ),
+                  ),
+
+                  // 3. Floating/Raised Active Circle containing the active icon
+                  Positioned(
+                    left: activeX - circleRadius,
+                    top: topPadding - circleRadius,
+                    child: GestureDetector(
+                      onTap: () => widget.onTap(widget.currentIndex),
+                      child: Container(
+                        width: circleRadius * 2,
+                        height: circleRadius * 2,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: widget.activeColor, // Project's active nav bg
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(
+                            widget.icons[animatedIndex.round().clamp(
+                              0,
+                              widget.icons.length - 1,
+                            )],
+                            size: 24,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Curved Navigation Bar Custom Painter
+// ─────────────────────────────────────────────────────────────────
+class _NavBarPainter extends CustomPainter {
+  final double activeX;
+  final double topPadding;
+  final double barHeight;
+  final double dipWidth;
+  final double dipDepth;
+
+  _NavBarPainter({
+    required this.activeX,
+    required this.topPadding,
+    required this.barHeight,
+    required this.dipWidth,
+    required this.dipDepth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double width = size.width;
+    final double bottom = size.height;
+    const double R = 16.0; // Corner radius of the bar
+
+    final path = Path();
+    path.moveTo(R, topPadding);
+
+    final double dipStart = activeX - dipWidth / 2;
+    final double dipEnd = activeX + dipWidth / 2;
+
+    // Draw top edge to dip start
+    path.lineTo(dipStart, topPadding);
+
+    // Draw dip (left half)
+    path.cubicTo(
+      dipStart + 14,
+      topPadding,
+      activeX - 14,
+      topPadding + dipDepth,
+      activeX,
+      topPadding + dipDepth,
+    );
+
+    // Draw dip (right half)
+    path.cubicTo(
+      activeX + 14,
+      topPadding + dipDepth,
+      dipEnd - 14,
+      topPadding,
+      dipEnd,
+      topPadding,
+    );
+
+    // Draw top edge to top-right corner
+    path.lineTo(width - R, topPadding);
+
+    // Top-right corner
+    path.arcToPoint(
+      Offset(width, topPadding + R),
+      radius: const Radius.circular(R),
+      clockwise: true,
+    );
+
+    // Right edge
+    path.lineTo(width, bottom - R);
+
+    // Bottom-right corner
+    path.arcToPoint(
+      Offset(width - R, bottom),
+      radius: const Radius.circular(R),
+      clockwise: true,
+    );
+
+    // Bottom edge
+    path.lineTo(R, bottom);
+
+    // Bottom-left corner
+    path.arcToPoint(
+      Offset(0, bottom - R),
+      radius: const Radius.circular(R),
+      clockwise: true,
+    );
+
+    // Left edge
+    path.lineTo(0, topPadding + R);
+
+    // Top-left corner
+    path.arcToPoint(
+      Offset(R, topPadding),
+      radius: const Radius.circular(R),
+      clockwise: true,
+    );
+
+    path.close();
+
+    // Paint shadow
+    canvas.drawShadow(path, Colors.black.withOpacity(0.08), 6.0, true);
+
+    // Paint background
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NavBarPainter oldDelegate) {
+    return oldDelegate.activeX != activeX ||
+        oldDelegate.topPadding != topPadding ||
+        oldDelegate.barHeight != barHeight ||
+        oldDelegate.dipWidth != dipWidth ||
+        oldDelegate.dipDepth != dipDepth;
+  }
 }
