@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'map_screen.dart';
 import 'contacts_screen.dart';
+import 'profile_screen.dart';
+import 'community_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -461,11 +463,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       case 1:
         return const MapScreen();
       case 2:
-        return _buildPlaceholderPage('Community');
+        return const CommunityScreen();
       case 3:
         return const ContactsScreen();
       case 4:
-        return _buildPlaceholderPage('Profile');
+        return const ProfileScreen();
       default:
         return _buildHomePage();
     }
