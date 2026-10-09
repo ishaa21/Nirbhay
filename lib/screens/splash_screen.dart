@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../services/web_helper.dart';
-import 'signup_screen.dart';
+import 'dashboard_screen.dart';
+import 'signin_screen.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -66,18 +69,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
       if (_progress >= 1.0) {
         timer.cancel();
-        _transitionToSignUp();
+        _checkSessionAndNavigate();
       }
     });
   }
 
-  void _transitionToSignUp() {
+  Future<void> _checkSessionAndNavigate() async {
     if (!mounted) return;
-    
-    // Premium transition: Fade out splash screen and fade in SignUp screen
+
+    final isLoggedIn = await AuthService().isLoggedIn();
+
+    if (!mounted) return;
+
+    final targetScreen = isLoggedIn ? const DashboardScreen() : const SignInScreen();
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const SignUpScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,

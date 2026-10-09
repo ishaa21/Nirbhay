@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'signin_screen.dart';
 
@@ -43,7 +43,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _handleSignUp() {
+  Future<void> _handleSignUp() async {
     // Clear any previous error message
     setState(() {
       _errorMessage = null;
@@ -63,28 +63,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _isLoading = true;
     });
 
-    // Simulated API Call
-    Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+    final result = await AuthService().register(
+      fullName: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      phone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+    );
 
-      // Special verification hook: type 'Error' to simulate an HTTP error card
-      if (_nameController.text.trim().toLowerCase() == 'error') {
-        setState(() {
-          _errorMessage = 'Network request failed: The auth server took too long to respond. Please check your internet connection and try again.';
-        });
-        return;
-      }
+    if (!mounted) return;
 
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (result['success'] == true) {
       // Show success feedback
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFF301427),
+        SnackBar(
+          backgroundColor: const Color(0xFF301427),
           content: Text(
-            'Account created successfully! Redirecting...',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            'Account created successfully! Welcome to Nirbhay, ${result['user']?.fullName ?? ''}.',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
       );
@@ -99,7 +98,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
           transitionDuration: const Duration(milliseconds: 800),
         ),
       );
-    });
+    } else {
+      setState(() {
+        _errorMessage = result['message'] ?? 'Registration failed. Please check your details.';
+      });
+    }
   }
 
   @override

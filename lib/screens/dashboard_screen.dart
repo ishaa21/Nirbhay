@@ -5,6 +5,9 @@ import 'profile_screen.dart';
 import 'community_screen.dart';
 import 'safety_timer_screen.dart';
 import 'fake_call_screen.dart';
+import 'live_tracking_screen.dart';
+import 'helplines_screen.dart';
+import 'safety_tips_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -149,9 +152,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           children: const [
             Icon(Icons.location_on_outlined, size: 14, color: _textSecondary),
             SizedBox(width: 2),
-            Text(
-              'Near HSR Layout, Bangalore',
-              style: TextStyle(fontSize: 13, color: _textSecondary),
+            Expanded(
+              child: Text(
+                'Near HSR Layout, Bangalore',
+                style: TextStyle(fontSize: 13, color: _textSecondary),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -293,7 +299,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       'icon': Icons.my_location,
       'title': 'Live Tracking',
       'subtitle': 'Real-time sharing',
-      'route': null,
+      'route': 'live_tracking',
     },
     {
       'icon': Icons.phone_disabled_outlined,
@@ -305,13 +311,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       'icon': Icons.support_agent_outlined,
       'title': 'Helplines',
       'subtitle': 'Local emergency contacts',
-      'route': null,
+      'route': 'helplines',
     },
     {
       'icon': Icons.lightbulb_outline,
       'title': 'Safety Tips',
       'subtitle': 'Guides and precautions',
-      'route': null,
+      'route': 'safety_tips',
     },
   ];
 
@@ -339,8 +345,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Widget screen;
                   if (route == 'safety_timer') {
                     screen = const SafetyTimerScreen();
-                  } else {
+                  } else if (route == 'live_tracking') {
+                    screen = const LiveTrackingScreen();
+                  } else if (route == 'fake_call') {
                     screen = const FakeCallScreen();
+                  } else if (route == 'helplines') {
+                    screen = const HelplinesScreen();
+                  } else if (route == 'safety_tips') {
+                    screen = const SafetyTipsScreen();
+                  } else {
+                    return;
                   }
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => screen),
@@ -491,6 +505,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildHomePage() {
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +530,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _buildSectionLabel('CURRENTLY SAFE AREA'),
           const SizedBox(height: 12),
           _buildMapCard(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 90), // Generous padding for floating nav bar
         ],
       ),
     );
@@ -571,37 +586,42 @@ class _SafetyCardState extends State<_SafetyCard> {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Icon at top
               Icon(widget.icon, size: 22, color: const Color(0xFF2A1020)),
+              const SizedBox(height: 6),
               // Text block in middle
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1B1B1C),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1B1B1C),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF6B6570),
-                      height: 1.35,
+                    const SizedBox(height: 3),
+                    Text(
+                      widget.subtitle,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B6570),
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
               // Arrow at bottom-right
               const Align(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
 import 'signin_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   late Animation<double> _badgeScaleAnim;
 
   String _currentTheme = 'Light';
+  UserModel? _userProfile;
 
   @override
   void initState() {
@@ -41,6 +44,17 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
     _badgeAnimController.forward();
+
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final user = await AuthService().getCurrentUser() ?? await AuthService().getProfile();
+    if (mounted) {
+      setState(() {
+        _userProfile = user;
+      });
+    }
   }
 
   @override
@@ -172,9 +186,9 @@ class _ProfileScreenState extends State<ProfileScreen>
           const SizedBox(height: 16),
 
           // User Name
-          const Text(
-            'Ananya Sharma',
-            style: TextStyle(
+          Text(
+            _userProfile?.fullName ?? 'Ananya Sharma',
+            style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
               color: _onSurface,
@@ -183,10 +197,10 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           const SizedBox(height: 4),
 
-          // Joined Date
-          const Text(
-            'Joined January 2024',
-            style: TextStyle(
+          // Email / Member Info
+          Text(
+            _userProfile?.email ?? 'ananya.sharma@example.com',
+            style: const TextStyle(
               fontSize: 14,
               color: _onSurfaceVariant,
             ),
@@ -603,8 +617,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                 backgroundColor: _primary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
+                // Clear JWT token from secure storage
+                await AuthService().logout();
+                if (!context.mounted) return;
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const SignInScreen()),

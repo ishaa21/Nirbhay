@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
 
@@ -34,7 +34,7 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  void _handleSignIn() {
+  Future<void> _handleSignIn() async {
     // Clear any previous error message
     setState(() {
       _errorMessage = null;
@@ -48,20 +48,25 @@ class _SignInScreenState extends State<SignInScreen> {
       _isLoading = true;
     });
 
-    // Simulated API Call
-    Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+    final result = await AuthService().login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
 
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (result['success'] == true) {
       // Show success feedback
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFF301427),
+        SnackBar(
+          backgroundColor: const Color(0xFF301427),
           content: Text(
-            'Signed in successfully! Welcome back.',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            'Signed in successfully! Welcome back, ${result['user']?.fullName ?? ''}.',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
       );
@@ -76,7 +81,11 @@ class _SignInScreenState extends State<SignInScreen> {
           transitionDuration: const Duration(milliseconds: 800),
         ),
       );
-    });
+    } else {
+      setState(() {
+        _errorMessage = result['message'] ?? 'Sign in failed. Please check your credentials.';
+      });
+    }
   }
 
   @override
