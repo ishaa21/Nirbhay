@@ -3,6 +3,8 @@ import 'map_screen.dart';
 import 'contacts_screen.dart';
 import 'profile_screen.dart';
 import 'community_screen.dart';
+import 'safety_timer_screen.dart';
+import 'fake_call_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -285,31 +287,31 @@ class _DashboardScreenState extends State<DashboardScreen>
       'icon': Icons.timer_outlined,
       'title': 'Safety Timer',
       'subtitle': "Auto-alerts contacts if you don't check in",
+      'route': 'safety_timer',
     },
     {
       'icon': Icons.my_location,
       'title': 'Live Tracking',
       'subtitle': 'Real-time sharing',
+      'route': null,
     },
     {
       'icon': Icons.phone_disabled_outlined,
       'title': 'Fake Call',
       'subtitle': 'Simulate a call to exit unsafe situations',
+      'route': 'fake_call',
     },
     {
       'icon': Icons.support_agent_outlined,
       'title': 'Helplines',
       'subtitle': 'Local emergency contacts',
-    },
-    {
-      'icon': Icons.security_outlined,
-      'title': 'Shield Mode',
-      'subtitle': 'High-alert security',
+      'route': null,
     },
     {
       'icon': Icons.lightbulb_outline,
       'title': 'Safety Tips',
       'subtitle': 'Guides and precautions',
+      'route': null,
     },
   ];
 
@@ -326,10 +328,24 @@ class _DashboardScreenState extends State<DashboardScreen>
       itemCount: _features.length,
       itemBuilder: (context, index) {
         final f = _features[index];
+        final route = f['route'] as String?;
         return _SafetyCard(
           icon: f['icon'] as IconData,
           title: f['title'] as String,
           subtitle: f['subtitle'] as String,
+          onTap: route == null
+              ? null
+              : () {
+                  Widget screen;
+                  if (route == 'safety_timer') {
+                    screen = const SafetyTimerScreen();
+                  } else {
+                    screen = const FakeCallScreen();
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => screen),
+                  );
+                },
         );
       },
     );
@@ -505,33 +521,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildPlaceholderPage(String title) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            title == 'Community'
-                ? Icons.people_outline
-                : title == 'Contacts'
-                ? Icons.contact_phone_outlined
-                : Icons.person_outline,
-            size: 48,
-            color: const Color(0xFF807479),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '$title Page',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF807479),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -541,11 +530,13 @@ class _SafetyCard extends StatefulWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _SafetyCard({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
@@ -561,7 +552,7 @@ class _SafetyCardState extends State<_SafetyCard> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () {},
+        onTap: widget.onTap ?? () {},
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
