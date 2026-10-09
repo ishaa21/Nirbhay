@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+        name="viewport" />
+    <title>Nirbhay - Map/Track</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        @layer base {
+
+            html,
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                min-height: 100%;
+            }
+
+            .pb-safe {
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
+
+            .pt-safe {
+                padding-top: env(safe-area-inset-top, 0px);
+            }
+
+            main> :first-child {
+                margin-top: 0 !important;
+            }
+
+            main> :last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+        id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "secondary-fixed": "#f5dce7", "primary-container": "#48293d", "on-primary": "#ffffff", "inverse-surface": "#303031", "error-container": "#ffdad6", "on-primary-container": "#b98fa7", "on-tertiary": "#ffffff", "on-secondary-fixed-variant": "#53424b", "error": "#ba1a1a", "surface-bright": "#fcf8f9", "surface-dim": "#dcd9da", "outline": "#807479", "primary-fixed-dim": "#e7bad3", "on-primary-fixed-variant": "#5e3c51", "surface-variant": "#e4e2e3", "outline-variant": "#d1c3c9", "on-background": "#1b1b1c", "surface-container-high": "#eae7e8", "surface": "#fcf8f9", "surface-container-highest": "#e4e2e3", "on-tertiary-container": "#809fbc", "on-tertiary-fixed-variant": "#2a4a63", "tertiary-container": "#14364e", "secondary-fixed-dim": "#d8c0cb", "primary": "#301427", "secondary-container": "#f2d9e4", "on-secondary": "#ffffff", "on-error-container": "#93000a", "surface-container-low": "#f6f3f4", "tertiary-fixed": "#cce5ff", "primary-fixed": "#ffd8ed", "inverse-primary": "#e7bad3", "on-secondary-container": "#705d67", "inverse-on-surface": "#f3f0f1", "on-error": "#ffffff", "surface-container-lowest": "#ffffff", "surface-tint": "#785369", "surface-container": "#f0edee", "on-primary-fixed": "#2d1225", "tertiary-fixed-dim": "#aacae8", "background": "#fcf8f9", "on-surface-variant": "#4e4449", "on-surface": "#1b1b1c", "tertiary": "#002035", "on-tertiary-fixed": "#001e31", "on-secondary-fixed": "#25171f", "secondary": "#6c5963" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "margin-mobile": "16px", "md": "16px", "xl": "32px", "xs": "4px", "sm": "8px", "lg": "24px", "gutter": "16px", "base": "8px", "margin-desktop": "64px" }, fontFamily: { "title-lg": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "display-lg": ["Plus Jakarta Sans"], "label-lg": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"] }, fontSize: { "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }], "display-lg": ["57px", { "lineHeight": "64px", "letterSpacing": "-0.25px", "fontWeight": "700" }], "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "600" }], "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }], "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }] } } } };</script>
+    <style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+
+<body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen">
+    <header
+        class="fixed top-0 inset-x-0 z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+        <div class="h-16 px-margin-mobile flex items-center justify-between">
+            <div class="flex items-center gap-sm"><img alt="main_logo.png" class="h-8 w-auto object-contain"
+                    src="https://lh3.googleusercontent.com/aida/AEtjO1VvmphcMVEFz-bmWJUgeXBInAE93u4XdEwjYqHZwyhTLBPVL3625rPQKSW9bqdiIFFkN7sNRrr7-3mdNvh6cXCYlA6d3318otfv6JcJ3NYNmRYpwEN8QzEXhDdBT3SewQ3W31S4aNb8sfAdevDuncq2Pm3TfLCMZm6-O3bosjJJRGEHbg2ClweYXwD6Nr0MEuo2MAbEfpEosS17-6qw0kdcQOfjQi7bOHlT38U7s4sW8tQY_DPhBcdPf21CsXptDrNzk_H0se6zQQ" />
+                <div class="flex flex-col"><span
+                        class="font-label-lg text-label-lg text-primary leading-tight font-bold tracking-tight">Nirbhay</span><span
+                        class="font-label-sm text-label-sm text-on-surface-variant leading-none">Map/Track</span></div>
+            </div>
+            <div class="flex items-center gap-xs"><button
+                    class="w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"><span
+                        class="material-symbols-outlined text-[22px]">notifications</span></button>
+                <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span
+                        class="material-symbols-outlined text-on-primary text-[18px]">person</span></div>
+            </div>
+        </div>
+    </header>
+    <main class="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface px-margin-mobile">
+        <div class="flex flex-col w-full pb-6 space-y-4">
+            <!-- Active Safety Status Banner -->
+            <div class="w-full bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="relative flex h-3 w-3">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-fixed-dim opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                        </span>
+                        <div class="flex flex-col">
+                            <span class="font-label-lg text-label-lg text-primary font-bold">Journey Shield
+                                Active</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">3 Guardians actively
+                                monitoring</span>
+                        </div>
+                    </div>
+                    <div
+                        class="flex items-center gap-1 bg-secondary-container px-2.5 py-1 rounded-full text-on-secondary-container">
+                        <span class="material-symbols-outlined text-[15px]"
+                            style="font-variation-settings: 'FILL' 1;">bolt</span>
+                        <span class="font-label-sm text-label-sm font-semibold">92%</span>
+                        <span class="text-on-secondary-variant mx-0.5">•</span>
+                        <span class="material-symbols-outlined text-[15px]">gps_fixed</span>
+                        <span class="font-label-sm text-label-sm font-semibold">High</span>
+                    </div>
+                </div>
+                <!-- Active Guardians Watching Pill Bar -->
+                <div class="flex items-center gap-2 overflow-x-auto pb-1">
+                    <div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded-full">
+                        <div class="relative w-5 h-5 rounded-full overflow-hidden">
+                            <img class="w-full h-full object-cover"
+                                data-alt="Warm portrait photograph of an Indian mother with a gentle smile and pastel saree in soft natural daylight, high resolution"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhH9vCD-61za9y9IMZ3tQ8kH9cZUE00AKnCL6O6v4A6js0j2ekSnFaMnMNtMbTN0OdXMVA7-TsnDvsVCW2GQ1mFuVLHTI-X9W3bcXrOD0ng8skWmwyHLEPm5CtD9ghfGXUEXzRbvegeHGtCr_zAV6PO7F5loXvKqRZJ05_EpJeC_ogmJxwLyl9w9tLCw6M8Wbo0WZ2JbWCycDwXzapNRBO3aEIgwm-WTgBG1AmcAZQTuymFF1ctdABuQ" />
+                        </div>
+                        <span class="font-label-sm text-label-sm text-on-surface font-medium">Mom</span>
+                        <span class="material-symbols-outlined text-primary text-[14px]">check_circle</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded-full">
+                        <div class="relative w-5 h-5 rounded-full overflow-hidden">
+                            <img class="w-full h-full object-cover"
+                                data-alt="Portrait of a young Indian sister with friendly smiling expression and sleek modern clothing, soft neutral background"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCplyF7KxQNO9bGpqfJyb2dn1KRAw5_jBvTceFisgOnR4W4-ti9PqwigTZCpp34B9vZugfslLbKvHyR4IeHyo7GahfdDBka-Y-b0eckoi6CFapPoAW5U98BLI-GZ5edL2f4OfJE_Hvs3RCSloJgjGic-OUBYdLy8UMwemG4YZWJUvQlponlcG1DXGZ-KAZ6MnB6xph-NpNq_P9RGfHYZJG0ulT5JGFqmeBgS7QFvoOvBjzkNof8JMr7zQ" />
+                        </div>
+                        <span class="font-label-sm text-label-sm text-on-surface font-medium">Sister Priya</span>
+                        <span class="material-symbols-outlined text-primary text-[14px]">check_circle</span>
+                    </div>
+                    <div
+                        class="flex items-center gap-1.5 bg-tertiary-fixed text-on-tertiary-fixed px-2.5 py-1 rounded-full">
+                        <span class="material-symbols-outlined text-[14px]"
+                            style="font-variation-settings: 'FILL' 1;">local_police</span>
+                        <span class="font-label-sm text-label-sm font-bold">112 Dispatch</span>
+                        <span class="material-symbols-outlined text-tertiary text-[14px]">check_circle</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Map Display Container with Floating SOS Trigger -->
+            <div class="relative w-full rounded-xl overflow-hidden shadow-sm bg-surface-container-high h-80">
+                <!-- Map Canvas Placeholder -->
+                <div class="w-full h-full bg-cover bg-center"
+                    data-location="Connaught Place to Green Park Metro Station, New Delhi, India"
+                    style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBgT-QSXwxNMNWdY-dwA2SNQwlc9OuGdo4VbnQQz2A4UiCuQqZmgsN_risUzWC9aEfYLtwSiy4rs-lZdZbTrp1crrEMQtUq-iMwysdgufazeKM3buHzJlRUuaweuNVIAWiwVjvi00P-uKpbVfzMcSCEUSr0vHIcb7L3Mz1hl0ITRu2XBg5SWeBFmDYCav6aSUaetODng-hAQnAhoA031DDJ1wizkkdy312MIWvEiD5n5LjI6krWzAXSmw')">
+                    <!-- Ambient Map Overlay Gradient -->
+                    <div
+                        class="absolute inset-0 bg-gradient-to-t from-primary/30 via-transparent to-black/10 pointer-events-none">
+                    </div>
+                    <!-- Live User Marker -->
+                    <div class="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                        <div class="relative flex items-center justify-center">
+                            <span
+                                class="animate-ping absolute h-12 w-12 rounded-full bg-primary-fixed opacity-75"></span>
+                            <div
+                                class="w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg border-2 border-surface-container-lowest">
+                                <span class="material-symbols-outlined text-[20px]">navigation</span>
+                            </div>
+                        </div>
+                        <div
+                            class="mt-1 bg-surface-container-lowest/90 backdrop-blur-md px-2 py-0.5 rounded-full shadow-sm">
+                            <span class="font-label-sm text-label-sm text-primary font-bold">Connaught Place</span>
+                        </div>
+                    </div>
+                    <!-- Live Route Waypoint Badge -->
+                    <div
+                        class="absolute top-4 left-4 bg-surface-container-lowest/90 backdrop-blur-md rounded-xl p-2.5 shadow-sm flex items-center gap-2">
+                        <div
+                            class="w-8 h-8 rounded-lg bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
+                            <span class="material-symbols-outlined text-[18px]">turn_sharp_right</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-label-sm text-label-sm text-on-surface font-bold">In 240m on Barakhamba
+                                Rd</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">Optimal safety route
+                                locked</span>
+                        </div>
+                    </div>
+                    <!-- Recenter Map Button -->
+                    <button aria-label="Center on my location"
+                        class="absolute top-4 right-4 w-10 h-10 rounded-xl bg-surface-container-lowest/95 backdrop-blur-md flex items-center justify-center text-primary shadow-sm active:scale-95 transition-transform">
+                        <span class="material-symbols-outlined text-[20px]">my_location</span>
+                    </button>
+                    <!-- Floating Tactical SOS Pulse Button -->
+                    <div class="absolute bottom-4 right-4 flex flex-col items-center">
+                        <button
+                            class="relative group w-14 h-14 rounded-full bg-error flex items-center justify-center text-on-error shadow-xl active:scale-95 transition-all"
+                            id="sosButton">
+                            <span class="animate-ping absolute inset-0 rounded-full bg-error opacity-40"></span>
+                            <span class="font-label-lg text-label-lg font-bold tracking-wider">SOS</span>
+                        </button>
+                        <span
+                            class="mt-1 font-label-sm text-label-sm text-surface-container-lowest font-semibold bg-inverse-surface/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px]">Hold
+                            2s</span>
+                    </div>
+                    <!-- Destination Floating Pin Tag -->
+                    <div
+                        class="absolute bottom-6 left-4 bg-surface-container-lowest/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-primary text-[16px]">pin_drop</span>
+                        <span class="font-label-sm text-label-sm font-bold text-primary">Green Park Metro Stn</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Telemetry & Ride Specs Card -->
+            <div class="w-full bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-4">
+                <!-- Header: Destination & ETA -->
+                <div class="flex items-start justify-between">
+                    <div class="flex flex-col">
+                        <span
+                            class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-medium">Destination</span>
+                        <h3 class="font-title-lg text-title-lg text-primary font-bold leading-tight">Green Park Metro
+                            Station</h3>
+                        <span class="font-body-md text-body-md text-on-surface-variant">Gate No. 2, Ring Road
+                            Exit</span>
+                    </div>
+                    <div class="flex flex-col items-end bg-secondary-fixed/50 px-3 py-2 rounded-xl">
+                        <span class="font-title-lg text-title-lg text-primary font-bold leading-tight">18 min</span>
+                        <span class="font-label-sm text-label-sm text-secondary font-medium">ETA 8:42 PM</span>
+                    </div>
+                </div>
+                <!-- Telemetry Badges Grid -->
+                <div class="grid grid-cols-3 gap-2 py-1">
+                    <div
+                        class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center justify-center text-center">
+                        <span class="material-symbols-outlined text-secondary text-[18px]">speed</span>
+                        <span class="font-label-lg text-label-lg text-on-surface font-bold mt-0.5">24 km/h</span>
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Cab Pace</span>
+                    </div>
+                    <div
+                        class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center justify-center text-center">
+                        <span class="material-symbols-outlined text-secondary text-[18px]">directions_car</span>
+                        <span class="font-label-lg text-label-lg text-primary font-bold mt-0.5">DL 1ZB 4291</span>
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Silver WagonR</span>
+                    </div>
+                    <div
+                        class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center justify-center text-center">
+                        <span class="material-symbols-outlined text-secondary text-[18px]">alt_route</span>
+                        <span class="font-label-lg text-label-lg text-on-surface font-bold mt-0.5">5.2 km</span>
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Remaining</span>
+                    </div>
+                </div>
+                <!-- Quick Journey Safeguard Toggles -->
+                <div class="flex items-center justify-between bg-surface-container p-3 rounded-xl">
+                    <div class="flex items-center gap-2.5">
+                        <div
+                            class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">wrong_location</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-label-lg text-label-lg text-on-surface font-semibold">Route Deviation
+                                Alarm</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">Notify guardians if route
+                                drifts &gt;150m</span>
+                        </div>
+                    </div>
+                    <!-- Native CSS Styled Toggle -->
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input checked="" class="sr-only peer" type="checkbox" />
+                        <div
+                            class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface-container-lowest after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary">
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <!-- Primary Journey Actions -->
+            <div class="grid grid-cols-2 gap-3 w-full">
+                <!-- Live Link Share Button -->
+                <button
+                    class="flex items-center justify-center gap-2 bg-primary text-on-primary py-3 px-4 rounded-xl shadow-sm active:scale-95 transition-transform"
+                    id="shareLinkBtn">
+                    <span class="material-symbols-outlined text-[20px]">share</span>
+                    <span class="font-label-lg text-label-lg font-bold">Share Live Link</span>
+                </button>
+                <!-- Safe Stop Journey Button -->
+                <button
+                    class="flex items-center justify-center gap-2 bg-secondary-container text-on-secondary-container py-3 px-4 rounded-xl shadow-sm active:scale-95 transition-transform"
+                    id="stopJourneyBtn">
+                    <span class="material-symbols-outlined text-[20px]">lock_reset</span>
+                    <span class="font-label-lg text-label-lg font-bold">Stop (PIN)</span>
+                </button>
+            </div>
+            <!-- Safe Spots En Route Section -->
+            <div class="w-full bg-surface-container-lowest rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-[20px]">verified_user</span>
+                        <h4 class="font-title-lg text-title-lg text-primary font-bold">Safe Spots En Route</h4>
+                    </div>
+                    <span
+                        class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">3
+                        Nearby</span>
+                </div>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Pre-vetted emergency shelters with 24/7
+                    security along your active corridor.</p>
+                <!-- Spot 1: Delhi Police Pink Booth -->
+                <div class="bg-surface-container-low p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed">
+                            <span class="material-symbols-outlined text-[20px]">shield_person</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-label-lg text-label-lg text-primary font-bold">Pink Police Booth
+                                #14</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">Barakhamba Crossing • 450m
+                                ahead</span>
+                        </div>
+                    </div>
+                    <a class="w-9 h-9 rounded-full bg-secondary-container text-primary flex items-center justify-center active:scale-90 transition-transform"
+                        href="tel:112">
+                        <span class="material-symbols-outlined text-[18px]">call</span>
+                    </a>
+                </div>
+                <!-- Spot 2: 24/7 Apollo Pharmacy -->
+                <div class="bg-surface-container-low p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-tertiary-fixed-dim flex items-center justify-center text-tertiary">
+                            <span class="material-symbols-outlined text-[20px]">local_pharmacy</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-label-lg text-label-lg text-primary font-bold">Apollo 24/7 Pharmacy</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">Well-lit safe sanctuary •
+                                1.1 km</span>
+                        </div>
+                    </div>
+                    <button
+                        class="w-9 h-9 rounded-full bg-secondary-container text-primary flex items-center justify-center active:scale-90 transition-transform"
+                        onclick="alert('Rerouting to Apollo 24/7')">
+                        <span class="material-symbols-outlined text-[18px]">directions</span>
+                    </button>
+                </div>
+                <!-- Spot 3: AIIMS Metro Central Kiosk -->
+                <div class="bg-surface-container-low p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-secondary-container flex items-center justify-center text-primary">
+                            <span class="material-symbols-outlined text-[20px]">subway</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-label-lg text-label-lg text-primary font-bold">CISF Metro Security
+                                Kiosk</span>
+                            <span class="font-label-sm text-label-sm text-on-surface-variant">Gate 3, AIIMS station •
+                                3.4 km</span>
+                        </div>
+                    </div>
+                    <button
+                        class="w-9 h-9 rounded-full bg-secondary-container text-primary flex items-center justify-center active:scale-90 transition-transform"
+                        onclick="alert('Notifying Station Marshals')">
+                        <span class="material-symbols-outlined text-[18px]">notifications_active</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Safety PIN Modal (Hidden by Default) -->
+            <div class="fixed inset-0 z-50 bg-inverse-surface/60 backdrop-blur-sm hidden items-center justify-center px-margin-mobile"
+                id="pinModal">
+                <div class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-5 shadow-xl flex flex-col gap-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-primary">
+                            <span class="material-symbols-outlined text-[22px]">lock</span>
+                            <h4 class="font-title-lg text-title-lg font-bold">Enter Safety PIN</h4>
+                        </div>
+                        <button class="text-on-surface-variant hover:text-primary" id="closePinModal">
+                            <span class="material-symbols-outlined text-[20px]">close</span>
+                        </button>
+                    </div>
+                    <p class="font-body-md text-body-md text-on-surface-variant">Enter your 4-digit secret PIN to verify
+                        arrival and safely conclude journey sharing.</p>
+                    <div class="flex justify-center gap-3 my-2">
+                        <input
+                            class="w-12 h-12 text-center text-title-lg font-bold bg-surface-container rounded-lg outline-none focus:bg-primary-fixed/30 text-primary"
+                            maxlength="1" type="password" />
+                        <input
+                            class="w-12 h-12 text-center text-title-lg font-bold bg-surface-container rounded-lg outline-none focus:bg-primary-fixed/30 text-primary"
+                            maxlength="1" type="password" />
+                        <input
+                            class="w-12 h-12 text-center text-title-lg font-bold bg-surface-container rounded-lg outline-none focus:bg-primary-fixed/30 text-primary"
+                            maxlength="1" type="password" />
+                        <input
+                            class="w-12 h-12 text-center text-title-lg font-bold bg-surface-container rounded-lg outline-none focus:bg-primary-fixed/30 text-primary"
+                            maxlength="1" type="password" />
+                    </div>
+                    <button
+                        class="w-full bg-primary text-on-primary font-label-lg text-label-lg font-bold py-3 rounded-xl shadow-sm"
+                        id="confirmStopBtn">
+                        Confirm &amp; End Tracking
+                    </button>
+                </div>
+            </div>
+            <!-- Micro-interaction JS Script -->
+            <script>
+                const stopJourneyBtn = document.getElementById('stopJourneyBtn');
+                const pinModal = document.getElementById('pinModal');
+                const closePinModal = document.getElementById('closePinModal');
+                const confirmStopBtn = document.getElementById('confirmStopBtn');
+                const shareLinkBtn = document.getElementById('shareLinkBtn');
+                const sosButton = document.getElementById('sosButton');
+
+                stopJourneyBtn?.addEventListener('click', () => {
+                    pinModal.classList.remove('hidden');
+                    pinModal.classList.add('flex');
+                });
+
+                closePinModal?.addEventListener('click', () => {
+                    pinModal.classList.add('hidden');
+                    pinModal.classList.remove('flex');
+                });
+
+                confirmStopBtn?.addEventListener('click', () => {
+                    alert('Journey successfully completed. Guardians notified that you are safe.');
+                    pinModal.classList.add('hidden');
+                    pinModal.classList.remove('flex');
+                });
+
+                shareLinkBtn?.addEventListener('click', () => {
+                    if (navigator.share) {
+                        navigator.share({
+                            title: 'Nirbhay Live Journey',
+                            text: 'I am tracking my trip to Green Park Metro on Nirbhay. Watch my live location:',
+                            url: window.location.href,
+                        }).catch(() => { });
+                    } else {
+                        alert('Tracking link copied to clipboard: https://nirbhay.app/live/tr-9281a');
+                    }
+                });
+
+                // SOS long press interaction
+                let sosTimer;
+                sosButton?.addEventListener('mousedown', () => {
+                    sosTimer = setTimeout(() => {
+                        alert('EMERGENCY SOS DISPATCHED: High priority alert sent to 112 Command Center and all designated guardians.');
+                    }, 1500);
+                });
+                sosButton?.addEventListener('mouseup', () => clearTimeout(sosTimer));
+                sosButton?.addEventListener('mouseleave', () => clearTimeout(sosTimer));
+                sosButton?.addEventListener('touchstart', () => {
+                    sosTimer = setTimeout(() => {
+                        alert('EMERGENCY SOS DISPATCHED: High priority alert sent to 112 Command Center and all designated guardians.');
+                    }, 1500);
+                });
+                sosButton?.addEventListener('touchend', () => clearTimeout(sosTimer));
+            </script>
+        </div>
+    </main>
+    <nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-surface/85 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.04)]"
+        data-active-classes="text-primary font-bold">
+        <div class="flex justify-between items-center h-16 px-xs"><a
+                class="flex-1 flex flex-col items-center justify-center gap-xs h-12 text-on-surface-variant transition-colors"
+                data-path="home" href="community.html"><span
+                    class="material-symbols-outlined text-[22px]">shield</span><span
+                    class="font-label-sm text-label-sm">Home</span></a><a aria-current="page"
+                class="flex-1 flex flex-col items-center justify-center gap-xs h-12 transition-colors text-primary font-bold"
+                data-path="map-track" href="map_track.html"><span
+                    class="material-symbols-outlined text-[22px]">near_me</span><span
+                    class="font-label-sm text-label-sm">Map/Track</span></a><a
+                class="flex-1 flex flex-col items-center justify-center gap-xs h-12 text-on-surface-variant transition-colors"
+                data-path="helplines-contacts" href="helplines_contacts.html"><span
+                    class="material-symbols-outlined text-[22px]">contact_phone</span><span
+                    class="font-label-sm text-label-sm">Contacts</span></a><a
+                class="flex-1 flex flex-col items-center justify-center gap-xs h-12 text-on-surface-variant transition-colors"
+                data-path="safety-hub" href="safety_hub.html"><span
+                    class="material-symbols-outlined text-[22px]">health_and_safety</span><span
+                    class="font-label-sm text-label-sm">Safety Hub</span></a><a
+                class="flex-1 flex flex-col items-center justify-center gap-xs h-12 text-on-surface-variant transition-colors"
+                data-path="profile" href="profile.html"><span
+                    class="material-symbols-outlined text-[22px]">manage_accounts</span><span
+                    class="font-label-sm text-label-sm">Profile</span></a></div>
+    </nav>
+</body>
+
+</html>
