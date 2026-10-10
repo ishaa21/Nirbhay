@@ -1,4 +1,4 @@
-# Environment Variables
+git # Environment Variables
 .env
 .env.local
 .env.production

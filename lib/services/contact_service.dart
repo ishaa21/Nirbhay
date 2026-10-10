@@ -34,9 +34,13 @@ class EmergencyContactService {
         final contacts = rawList.map((e) => EmergencyContactModel.fromJson(e)).toList();
         return {'success': true, 'contacts': contacts};
       } else {
+        String msg = data['message'] ?? 'Failed to load emergency contacts.';
+        if (data['error'] != null) {
+          msg += ' (${data['error']})';
+        }
         return {
           'success': false,
-          'message': data['message'] ?? 'Failed to load emergency contacts.',
+          'message': msg,
         };
       }
     } on TimeoutException {
@@ -93,6 +97,8 @@ class EmergencyContactService {
         String errorMsg = data['message'] ?? 'Failed to add contact.';
         if (data['errors'] is List && (data['errors'] as List).isNotEmpty) {
           errorMsg = (data['errors'] as List).join('\n');
+        } else if (data['error'] != null) {
+          errorMsg += ' (${data['error']})';
         }
         return {'success': false, 'message': errorMsg};
       }

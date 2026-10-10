@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../models/sos_model.dart';
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
+import '../services/sos_service.dart';
 import 'map_screen.dart';
 import 'contacts_screen.dart';
 import 'profile_screen.dart';
@@ -24,6 +28,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   late AnimationController _sosAnimController;
   late Animation<double> _sosScaleAnim;
 
+  UserModel? _currentUser;
+  SosIncidentModel? _activeSosIncident;
+  bool _isActivatingSos = false;
+  bool _isLoadingActiveSos = false;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +43,32 @@ class _DashboardScreenState extends State<DashboardScreen>
     _sosScaleAnim = Tween<double>(begin: 1.0, end: 0.93).animate(
       CurvedAnimation(parent: _sosAnimController, curve: Curves.easeInOut),
     );
+    _loadUserAndActiveSos();
+  }
+
+  Future<void> _loadUserAndActiveSos() async {
+    final user = await AuthService().getCurrentUser();
+    if (mounted) {
+      setState(() {
+        _currentUser = user;
+      });
+    }
+    await _refreshActiveSos();
+  }
+
+  Future<void> _refreshActiveSos() async {
+    setState(() => _isLoadingActiveSos = true);
+    final res = await SosService().getActiveSos();
+    if (mounted) {
+      setState(() {
+        _isLoadingActiveSos = false;
+        if (res['success'] == true && res['active'] == true) {
+          _activeSosIncident = res['incident'];
+        } else {
+          _activeSosIncident = null;
+        }
+      });
+    }
   }
 
   @override
@@ -90,9 +125,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Logo text
-          Text(
+          const Text(
             'NIRBHAY',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               letterSpacing: 2.5,
@@ -135,12 +170,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   //  Greeting
   // ─────────────────────────────────────────────────────────────────
   Widget _buildGreeting() {
+    final name = _currentUser?.fullName.split(' ').first ?? 'User';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Good evening, Ananya',
-          style: TextStyle(
+        Text(
+          'Good evening, $name',
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: _textPrimary,
@@ -178,7 +214,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         onTapUp: (_) {
           setState(() => _sosPressing = false);
           _sosAnimController.reverse();
-          _showSOSDialog();
+          _triggerSosActivation();
         },
         onTapCancel: () {
           setState(() => _sosPressing = false);
@@ -191,14 +227,16 @@ class _DashboardScreenState extends State<DashboardScreen>
             height: 180,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                center: Alignment(0.1, -0.2),
+              gradient: RadialGradient(
+                center: const Alignment(0.1, -0.2),
                 radius: 0.85,
-                colors: [Color(0xFF4A1D30), _sosDark],
+                colors: _activeSosIncident != null
+                    ? [const Color(0xFFD32F2F), const Color(0xFF8B0000)]
+                    : [const Color(0xFF4A1D30), _sosDark],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _sosDark.withOpacity(0.35),
+                  color: (_activeSosIncident != null ? const Color(0xFFD32F2F) : _sosDark).withOpacity(0.35),
                   blurRadius: 32,
                   spreadRadius: 8,
                   offset: const Offset(0, 8),
@@ -213,26 +251,44 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'SOS',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 4,
+              children: [
+                if (_isActivatingSos) ...[
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                   ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Hold for 3s',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFFBBAFB5),
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.5,
+                  const SizedBox(height: 8),
+                  const Text(
+                    'ACTIVATING',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 1.5,
+                    ),
                   ),
-                ),
+                ] else ...[
+                  Text(
+                    _activeSosIncident != null ? 'ACTIVE' : 'SOS',
+                    style: TextStyle(
+                      fontSize: _activeSosIncident != null ? 26 : 32,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _activeSosIncident != null ? 'Tap for Options' : 'Tap to Alert',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFBBAFB5),
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -241,27 +297,100 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showSOSDialog() {
+  Future<void> _triggerSosActivation() async {
+    if (_isActivatingSos) return;
+
+    if (_activeSosIncident != null) {
+      _showActiveSosModal(_activeSosIncident!);
+      return;
+    }
+
+    setState(() => _isActivatingSos = true);
+
+    final res = await SosService().createSos();
+
+    if (!mounted) return;
+    setState(() => _isActivatingSos = false);
+
+    if (res['success'] == true) {
+      final incident = res['incident'] as SosIncidentModel;
+      setState(() => _activeSosIncident = incident);
+      _showSosSuccessModal(incident, res['notifications']);
+    } else if (res['alreadyActive'] == true) {
+      final incident = res['incident'] as SosIncidentModel?;
+      if (incident != null) {
+        setState(() => _activeSosIncident = incident);
+        _showActiveSosModal(incident);
+      } else {
+        _refreshActiveSos();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Failed to trigger SOS alert.'),
+          backgroundColor: const Color(0xFFD32F2F),
+        ),
+      );
+    }
+  }
+
+  void _showSosSuccessModal(SosIncidentModel incident, dynamic notificationSummary) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('SOS Alert', style: TextStyle(color: _textPrimary)),
-        content: const Text(
-          'This will alert your emergency contacts. In a real scenario, hold for 3 seconds to confirm.',
-          style: TextStyle(color: _textSecondary),
+        title: Row(
+          children: const [
+            Icon(Icons.warning, color: Color(0xFFD32F2F), size: 28),
+            SizedBox(width: 8),
+            Text('SOS Emergency Activated', style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your emergency alert has been recorded on the Nirbhay safety network.',
+              style: TextStyle(color: _textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F3F5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Incident ID: ${incident.id.substring(0, 8)}...', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textPrimary)),
+                  const SizedBox(height: 4),
+                  Text('Status: ${incident.status}', style: const TextStyle(fontSize: 12, color: Color(0xFFD32F2F), fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    incident.latitude != null 
+                        ? 'Location: ${incident.latitude!.toStringAsFixed(4)}, ${incident.longitude!.toStringAsFixed(4)}'
+                        : 'Location: Pending/Unavailable',
+                    style: const TextStyle(fontSize: 12, color: _textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: _textSecondary),
-            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _handleCancel(incident.id);
+            },
+            child: const Text('Cancel SOS', style: TextStyle(color: _textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _accent),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2A1020)),
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('OK', style: TextStyle(color: Colors.white)),
           ),
@@ -269,6 +398,83 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
+
+  void _showActiveSosModal(SosIncidentModel incident) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.shield, color: Color(0xFFD32F2F)),
+            SizedBox(width: 8),
+            Text('Active SOS Incident', style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'An emergency SOS alert triggered at ${incident.activatedAt.toLocal().toString().split('.')[0]} is currently active.',
+          style: const TextStyle(color: _textSecondary),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _handleCancel(incident.id);
+            },
+            child: const Text('Cancel SOS', style: TextStyle(color: _textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _handleResolve(incident.id);
+            },
+            child: const Text('Resolve SOS', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleResolve(String incidentId) async {
+    final res = await SosService().resolveSos(incidentId);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() => _activeSosIncident = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SOS incident marked as RESOLVED. Safety network updated.'),
+          backgroundColor: Color(0xFF2E7D32),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to resolve SOS.')),
+      );
+    }
+  }
+
+  Future<void> _handleCancel(String incidentId) async {
+    final res = await SosService().cancelSos(incidentId);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() => _activeSosIncident = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SOS incident CANCELLED.'),
+          backgroundColor: Color(0xFF424242),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to cancel SOS.')),
+      );
+    }
+  }
+
 
   // ─────────────────────────────────────────────────────────────────
   //  Section Label
@@ -503,6 +709,97 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  Widget _buildActiveSosCard(SosIncidentModel incident) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(top: 16, bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1020),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD32F2F), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD32F2F).withOpacity(0.3),
+            blurRadius: 16,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFD32F2F),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'ACTIVE SOS EMERGENCY INCIDENT',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Activated: ${incident.activatedAt.toLocal().toString().split('.')[0]}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFFE0E0E0)),
+          ),
+          if (incident.latitude != null && incident.longitude != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Location: ${incident.latitude!.toStringAsFixed(4)}, ${incident.longitude!.toStringAsFixed(4)}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFBBAFB5)),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _handleResolve(incident.id),
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('Resolve', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _handleCancel(incident.id),
+                  icon: const Icon(Icons.cancel_outlined, size: 16),
+                  label: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHomePage() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -514,6 +811,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           // Greeting
           _buildGreeting(),
+
+          // Active Emergency Banner (if active SOS incident present)
+          if (_activeSosIncident != null)
+            _buildActiveSosCard(_activeSosIncident!),
+
           const SizedBox(height: 28),
 
           // SOS Button
@@ -535,6 +837,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     );
   }
+
 
 }
 

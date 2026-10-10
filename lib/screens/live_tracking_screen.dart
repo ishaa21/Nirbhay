@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/sos_service.dart';
+import '../models/sos_model.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
+
   const LiveTrackingScreen({super.key});
 
   @override
@@ -944,31 +947,50 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     );
   }
 
-  void _triggerEmergencySOS() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: const [
-            Icon(Icons.warning, color: _error),
-            SizedBox(width: 8),
-            Text('EMERGENCY SOS', style: TextStyle(color: _error, fontWeight: FontWeight.bold)),
+  Future<void> _triggerEmergencySOS() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Activating SOS Emergency Alert...')),
+    );
+
+    final res = await SosService().createSos();
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      final incident = res['incident'] as SosIncidentModel;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: const [
+              Icon(Icons.warning, color: _error),
+              SizedBox(width: 8),
+              Text('EMERGENCY SOS ACTIVATED', style: TextStyle(color: _error, fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: Text(
+            'Emergency alert #${incident.id.substring(0, 8)} has been activated on the network and dispatched to emergency contacts.',
+            style: const TextStyle(color: _onSurface),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: _error),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK', style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
-        content: const Text(
-          'High priority alert sent to 112 Command Center and all designated guardians with your live location.',
-          style: TextStyle(color: _onSurface),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _error),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+      );
+    } else if (res['alreadyActive'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An active SOS emergency incident is already in progress.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to activate SOS emergency alert.')),
+      );
+    }
   }
 }
+

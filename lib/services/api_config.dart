@@ -1,29 +1,25 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  // Physical device testing: set to your PC's local IP address
-  // Current LAN IP (updated): 10.142.35.163
-  static const String _customBaseUrl = 'http://10.142.35.163:5000/api';
+  // ─────────────────────────────────────────────────────────────────────────
+  // Production backend deployed on Render (HTTPS — accessible from anywhere)
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String _productionUrl = 'https://nirbhay-9d5i.onrender.com/api';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Local development override:
+  // - For Android Emulator: 'http://10.0.2.2:5000/api'
+  // - For Physical Device (same Wi-Fi): 'http://10.107.175.106:5000/api'
+  // - For Web/Windows: 'http://localhost:5000/api'
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String _localDevUrl = 'http://10.0.2.2:5000/api';
 
   static String get baseUrl {
-    if (_customBaseUrl.isNotEmpty) {
-      return _customBaseUrl;
+    if (kDebugMode && _localDevUrl.isNotEmpty) {
+      return _localDevUrl;
     }
-
-    if (kIsWeb) {
-      return 'http://localhost:5000/api';
-    }
-
-    try {
-      if (Platform.isAndroid) {
-        // Android Emulator maps host localhost to 10.0.2.2
-        return 'http://10.0.2.2:5000/api';
-      }
-    } catch (e) {
-      // Platform check may fail on non-supported platforms
-    }
-
-    return 'http://localhost:5000/api';
+    return _productionUrl;
   }
 }
+
+

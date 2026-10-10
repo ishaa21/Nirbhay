@@ -77,7 +77,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _checkSessionAndNavigate() async {
     if (!mounted) return;
 
-    final isLoggedIn = await AuthService().isLoggedIn();
+    bool isLoggedIn = false;
+    try {
+      isLoggedIn = await AuthService().isLoggedIn().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // If server check times out on splash, default to false/login screen or stored local session
+      final user = await AuthService().getCurrentUser();
+      isLoggedIn = user != null;
+    }
 
     if (!mounted) return;
 

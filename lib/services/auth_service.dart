@@ -35,7 +35,7 @@ class AuthService {
           'password': password,
           'phone': phone,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 45));
 
       final data = jsonDecode(response.body);
 
@@ -56,7 +56,7 @@ class AuthService {
     } on TimeoutException {
       return {
         'success': false,
-        'message': 'Request timed out. Check that your phone and PC are on the same Wi-Fi network.',
+        'message': 'The server is taking too long to respond. It may be starting up — please wait a moment and try again.',
       };
     } catch (e) {
       return {
@@ -80,7 +80,7 @@ class AuthService {
           'email': email,
           'password': password,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 45));
 
       final data = jsonDecode(response.body);
 
@@ -101,7 +101,7 @@ class AuthService {
     } on TimeoutException {
       return {
         'success': false,
-        'message': 'Request timed out. Check that your phone and PC are on the same Wi-Fi network.',
+        'message': 'The server is taking too long to respond. It may be starting up — please wait a moment and try again.',
       };
     } catch (e) {
       return {
@@ -124,7 +124,7 @@ class AuthService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

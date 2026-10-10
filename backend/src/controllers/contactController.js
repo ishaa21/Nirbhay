@@ -47,6 +47,7 @@ const getContacts = async (req, res) => {
         console.error('Get Contacts Error:', error.message);
         res.status(500).json({
             message: 'Server error while fetching emergency contacts.',
+            error: error.message,
         });
     }
 };
@@ -86,6 +87,7 @@ const addContact = async (req, res) => {
         console.error('Add Contact Error:', error.message);
         res.status(500).json({
             message: 'Server error while adding emergency contact.',
+            error: error.message,
         });
     }
 };

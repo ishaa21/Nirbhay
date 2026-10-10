@@ -5,6 +5,7 @@ const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const sosRoutes = require('./routes/sosRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,6 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
+app.use('/api/sos', sosRoutes);
+
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
