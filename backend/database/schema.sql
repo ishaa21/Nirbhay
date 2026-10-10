@@ -32,3 +32,25 @@ CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Emergency Contacts Table
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    relationship VARCHAR(100),
+    auto_alert BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index for fast lookup on user_id
+CREATE INDEX IF NOT EXISTS idx_emergency_contacts_user_id ON emergency_contacts(user_id);
+
+DROP TRIGGER IF EXISTS update_emergency_contacts_updated_at ON emergency_contacts;
+CREATE TRIGGER update_emergency_contacts_updated_at
+    BEFORE UPDATE ON emergency_contacts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+

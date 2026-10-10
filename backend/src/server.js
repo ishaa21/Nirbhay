@@ -4,6 +4,7 @@ const cors = require('cors');
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/contacts', contactRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
@@ -50,9 +52,9 @@ app.get('/health/db', async (req, res) => {
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`),
-  console.log(`Local:    http://localhost:${PORT}/health`),
-  console.log(`Network:  http://10.107.175.106:${PORT}/health`),
-  console.log(`DB check: http://localhost:${PORT}/health/db`)
+    console.log(`Local:    http://localhost:${PORT}/health`),
+    console.log(`Network:  http://10.107.175.106:${PORT}/health`),
+    console.log(`DB check: http://localhost:${PORT}/health/db`)
 });
 
 module.exports = app;
