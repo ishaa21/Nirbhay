@@ -2,24 +2,22 @@ import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   // ─────────────────────────────────────────────────────────────────────────
-  // Production backend deployed on Render (HTTPS — accessible from anywhere)
+  // Production backend deployed on Render (HTTPS — works on any network/device)
   // ─────────────────────────────────────────────────────────────────────────
   static const String _productionUrl = 'https://nirbhay-9d5i.onrender.com/api';
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Local development override:
-  // - For Android Emulator: 'http://10.0.2.2:5000/api'
-  // - For Physical Device (same Wi-Fi): 'http://10.107.175.106:5000/api'
-  // - For Web/Windows: 'http://localhost:5000/api'
+  // Local development override (only used in debug builds when non-empty).
+  // Set this to your PC's LAN IP if you need to test against a local server,
+  // e.g. 'http://10.142.35.163:5000/api'. Leave empty for production.
   // ─────────────────────────────────────────────────────────────────────────
-  static const String _localDevUrl = 'http://10.0.2.2:5000/api';
+  static const String _localDevUrl = '';
 
   static String get baseUrl {
+    // In debug mode, use local override if provided; otherwise use production.
     if (kDebugMode && _localDevUrl.isNotEmpty) {
       return _localDevUrl;
     }
     return _productionUrl;
   }
 }
-
-

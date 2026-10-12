@@ -268,10 +268,195 @@ const cancelSos = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/sos/test-sms
+ * Safe test endpoint to verify SMS Gateway connectivity
+ */
+const testSms = async (req, res) => {
+  const userId = req.userId;
+  const { phone, message } = req.body;
+
+  try {
+    const smsGateway = require('../services/smsGatewayService');
+    const isConfigured = smsGateway.isGatewayConfigured();
+
+    if (!isConfigured) {
+      return res.status(400).json({
+        success: false,
+        status: 'NOT_CONFIGURED',
+        errorCategory: 'CONFIGURATION_ERROR',
+        message: 'SMS Gateway credentials (SMS_GATEWAY_LOGIN and SMS_GATEWAY_PASSWORD) are not configured in environment variables.',
+      });
+    }
+
+    const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
+    const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
+
+    let targetPhone = phone;
+
+    if (isTestMode) {
+      // In safe test mode, strictly enforce dispatch ONLY to SMS_TEST_PHONE_NUMBER
+      if (!testPhoneNumber) {
+        return res.status(400).json({
+          success: false,
+          status: 'CONFIG_ERROR',
+          errorCategory: 'CONFIGURATION_ERROR',
+          message: 'SMS_TEST_MODE is true, but SMS_TEST_PHONE_NUMBER is not set in environment variables. Aborting test dispatch for safety.',
+        });
+      }
+      targetPhone = testPhoneNumber;
+    } else {
+      // If test mode is not enabled, use passed phone or user profile phone
+      if (!targetPhone) {
+        const userRes = await db.query(`SELECT phone FROM users WHERE id = $1`, [userId]);
+        if (userRes.rows.length > 0 && userRes.rows[0].phone) {
+          targetPhone = userRes.rows[0].phone;
+        }
+      }
+    }
+
+    if (!targetPhone) {
+      return res.status(400).json({
+        success: false,
+        status: 'MISSING_RECIPIENT',
+        message: 'Recipient phone number is required. Provide "phone" in request body or configure SMS_TEST_PHONE_NUMBER.',
+      });
+    }
+
+    const testMsg = message || `TEST ALERT: Safe connectivity test from Nirbhay Women Safety Application at ${new Date().toLocaleTimeString('en-IN')}. No emergency.`;
+
+    const result = await smsGateway.sendSms({
+      to: targetPhone,
+      message: testMsg,
+    });
+
+    if (result.success) {
+      // An accepted message enters state "Pending" on the gateway. Never describe as delivered.
+      const initialStatus = result.state?.toUpperCase() === 'SENT' ? 'SENT' : 'PENDING';
+
+      return res.status(200).json({
+        success: true,
+        status: initialStatus,
+        delivered: false,
+        testModeActive: isTestMode,
+        recipient: smsGateway.maskPhone(targetPhone),
+        messageId: result.messageId,
+        message: 'Test SMS successfully accepted and enqueued on Android SMS Gateway.',
+        note: 'The message is enqueued with the gateway (PENDING). Delivery occurs when the Android phone dispatches the SMS via SIM.',
+      });
+    } else {
+      return res.status(502).json({
+        success: false,
+        status: 'FAILED',
+        errorCategory: result.errorCategory || 'GATEWAY_ERROR',
+        error: result.error,
+        message: 'Failed to send test SMS via Android SMS Gateway.',
+      });
+    }
+  } catch (error) {
+    console.error('Error sending test SMS:', error);
+    return res.status(500).json({
+      success: false,
+      status: 'SERVER_ERROR',
+      message: 'Internal server error while sending test SMS.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/sos/gateway-status
+ * Check SMS Gateway server reachability, credential validity, and registered Android devices
+ */
+const getGatewayStatus = async (req, res) => {
+  try {
+    const smsGateway = require('../services/smsGatewayService');
+    const isConfigured = smsGateway.isGatewayConfigured();
+    const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
+    const testPhone = process.env.SMS_TEST_PHONE_NUMBER;
+
+    if (!isConfigured) {
+      return res.status(200).json({
+        gatewayConfigured: false,
+        testModeActive: isTestMode,
+        testPhoneNumber: smsGateway.maskPhone(testPhone),
+        connectivity: 'NOT_CONFIGURED',
+        message: 'SMS Gateway credentials are not configured in environment variables.',
+      });
+    }
+
+    const probeResult = await smsGateway.checkGatewayDeviceRegistration();
+
+    return res.status(200).json({
+      gatewayConfigured: true,
+      testModeActive: isTestMode,
+      testPhoneNumber: smsGateway.maskPhone(testPhone),
+      connectivity: probeResult.reachable && probeResult.authenticated ? 'CONNECTED' : 'ERROR',
+      authenticated: probeResult.authenticated,
+      devicesCount: probeResult.devices.length,
+      devices: probeResult.devices,
+      error: probeResult.error || null,
+      errorCategory: probeResult.errorCategory || null,
+    });
+  } catch (error) {
+    console.error('Error fetching gateway status:', error);
+    return res.status(500).json({
+      message: 'Failed to probe SMS Gateway status.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/sos/webhook/sms-gateway
+ * Receive real-time message status updates (sms:sent, sms:delivered, sms:failed) from sms-gate.app
+ */
+const handleGatewayWebhook = async (req, res) => {
+  try {
+    const smsGateway = require('../services/smsGatewayService');
+    const secret = process.env.SMS_GATEWAY_WEBHOOK_SECRET;
+
+    // Verify webhook signature if secret configured
+    if (secret) {
+      const signature = req.headers['x-signature'];
+      const timestamp = req.headers['x-timestamp'];
+      const rawBody = JSON.stringify(req.body);
+
+      const isValid = smsGateway.verifyWebhookSignature({
+        rawBody,
+        timestamp,
+        signature,
+        secret,
+      });
+
+      if (!isValid) {
+        console.warn('[SMS_GATEWAY_AUTH_FAILURE] Rejected unauthorized webhook call with invalid HMAC signature.');
+        return res.status(401).json({ message: 'Invalid webhook signature.' });
+      }
+    }
+
+    console.log('[SMS_GATEWAY_WEBHOOK] Received event from SMS Gateway:', req.body.event, 'Msg ID:', req.body.payload?.messageId);
+    const result = await smsGateway.processWebhookEvent(req.body);
+
+    return res.status(200).json({
+      received: true,
+      result,
+    });
+  } catch (error) {
+    console.error('[SMS_GATEWAY_WEBHOOK_ERROR]', error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createSos,
   getActiveSos,
   getSosHistory,
   resolveSos,
   cancelSos,
+  testSms,
+  getGatewayStatus,
+  handleGatewayWebhook,
 };
+
+
