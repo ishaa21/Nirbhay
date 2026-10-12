@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../models/sos_model.dart';
@@ -16,6 +17,7 @@ class SosService {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        debugPrint('[SOS Location] Device location service (GPS) is disabled.');
         return null;
       }
 
@@ -23,23 +25,59 @@ class SosService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          debugPrint('[SOS Location] Location permission was denied by user.');
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        debugPrint('[SOS Location] Location permission is denied forever in app settings.');
         return null;
       }
 
-      // Fetch position with 4-second timeout to prevent blocking SOS activation
-      return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 4),
-        ),
-      );
+      // 1. Immediately fetch cached last known position as instant fallback
+      Position? fallbackPosition;
+      try {
+        fallbackPosition = await Geolocator.getLastKnownPosition();
+        if (fallbackPosition != null) {
+          debugPrint('[SOS Location] Last known position cached: ${fallbackPosition.latitude}, ${fallbackPosition.longitude}');
+        }
+      } catch (err) {
+        debugPrint('[SOS Location] Could not read last known position: $err');
+      }
+
+      // 2. Attempt fresh position fix with balanced/high accuracy and 5s timeout
+      try {
+        final freshPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+        debugPrint('[SOS Location] Acquired fresh position: ${freshPosition.latitude}, ${freshPosition.longitude}');
+        return freshPosition;
+      } catch (freshErr) {
+        debugPrint('[SOS Location] Fresh high-accuracy location timed out ($freshErr). Falling back...');
+        if (fallbackPosition != null) {
+          return fallbackPosition;
+        }
+      }
+
+      // 3. If no cached position and high accuracy timed out, try medium accuracy with 3s timeout
+      try {
+        final mediumPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        debugPrint('[SOS Location] Acquired medium-accuracy position: ${mediumPosition.latitude}, ${mediumPosition.longitude}');
+        return mediumPosition;
+      } catch (_) {
+        return fallbackPosition;
+      }
     } catch (e) {
-      // Return null on location failure or timeout
+      debugPrint('[SOS Location] Exception in _tryGetLocation: $e');
       return null;
     }
   }

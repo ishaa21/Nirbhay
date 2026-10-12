@@ -205,10 +205,20 @@ const resolveSos = async (req, res) => {
       RETURNING *
     `;
     const result = await db.query(updateQuery, [id, userId]);
+    const resolvedIncident = result.rows[0];
+
+    // Dispatch "User is safe now" notification to emergency contacts
+    const { sendSosResolvedAlerts } = require('../services/notificationService');
+    const resolutionNotifications = await sendSosResolvedAlerts({
+      sosId: id,
+      userId,
+      resolvedAt: resolvedIncident.resolved_at,
+    });
 
     return res.status(200).json({
-      message: 'SOS incident resolved successfully.',
-      incident: result.rows[0],
+      message: 'SOS incident resolved successfully. Emergency contacts notified that you are safe now.',
+      incident: resolvedIncident,
+      notifications: resolutionNotifications,
     });
   } catch (error) {
     console.error('Error resolving SOS incident:', error);

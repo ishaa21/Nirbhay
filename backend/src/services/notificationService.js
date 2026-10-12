@@ -259,7 +259,107 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt }
   }
 }
 
+/**
+ * Format SMS body for resolved incident ("user is safe now")
+ */
+function buildResolvedMessage({ resolvedAt, userName }) {
+  const timeStr = new Date(resolvedAt || Date.now()).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  });
+
+  const name = userName ? userName.trim() : 'The user';
+  return `STATUS UPDATE: ${name}'s Nirbhay SOS emergency alert has been RESOLVED at ${timeStr}. User is SAFE now. No further action is required.`;
+}
+
+/**
+ * Send "User is Safe" notification when an SOS incident is resolved
+ */
+async function sendSosResolvedAlerts({ sosId, userId, resolvedAt }) {
+  try {
+    // 1. Fetch user's name
+    const userRes = await db.query(`SELECT full_name FROM users WHERE id = $1`, [userId]);
+    const userName = userRes.rows[0]?.full_name || 'The user';
+
+    // 2. Fetch emergency contacts with auto_alert = true
+    const contactsRes = await db.query(
+      `SELECT id, name, phone, auto_alert 
+       FROM emergency_contacts 
+       WHERE user_id = $1 AND auto_alert = true`,
+      [userId]
+    );
+
+    const contacts = contactsRes.rows;
+    if (contacts.length === 0) {
+      console.log(`[SOS Resolved Notification] No emergency contacts found with auto_alert for user ${userId}.`);
+      return { status: 'NO_CONTACTS', sentCount: 0, pendingCount: 0, failedCount: 0 };
+    }
+
+    const messageBody = buildResolvedMessage({ resolvedAt, userName });
+    const isGatewayConfigured = smsGateway.isGatewayConfigured();
+    const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
+    const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
+
+    let sentCount = 0;
+    let pendingCount = 0;
+    let failedCount = 0;
+
+    for (const contact of contacts) {
+      let targetPhone = contact.phone;
+      if (isTestMode) {
+        if (!testPhoneNumber) continue;
+        targetPhone = testPhoneNumber;
+      }
+
+      if (!isGatewayConfigured) {
+        console.log(`[SOS RESOLVED] Contact: ${contact.name} (${contact.phone}) | Status: NOT_CONFIGURED`);
+        await db.query(
+          `INSERT INTO sos_notifications (sos_id, contact_id, contact_name, contact_phone, channel, status, error_message)
+           VALUES ($1, $2, $3, $4, 'SMS', 'NOT_CONFIGURED', 'SMS Gateway credentials not set.')`,
+          [sosId, contact.id, contact.name, contact.phone]
+        );
+        failedCount++;
+      } else {
+        try {
+          const res = await smsGateway.sendSms({
+            to: targetPhone,
+            message: messageBody,
+          });
+
+          const mappedStatus = res.success
+            ? (res.state?.toUpperCase() === 'SENT' ? 'SENT' : 'PENDING')
+            : 'FAILED';
+
+          console.log(`[SOS RESOLVED] "User is safe" SMS to ${contact.name} (${targetPhone}). State: ${mappedStatus}`);
+
+          await db.query(
+            `INSERT INTO sos_notifications (sos_id, contact_id, contact_name, contact_phone, channel, status, provider_message_id, error_message)
+             VALUES ($1, $2, $3, $4, 'SMS', $5, $6, $7)`,
+            [sosId, contact.id, contact.name, contact.phone, mappedStatus, res.messageId || null, res.error || null]
+          );
+
+          if (mappedStatus === 'SENT') sentCount++;
+          else if (mappedStatus === 'PENDING') pendingCount++;
+          else failedCount++;
+        } catch (err) {
+          console.error(`[SOS RESOLVED] Error dispatching to ${contact.name}:`, err.message);
+          failedCount++;
+        }
+      }
+    }
+
+    return { success: true, sentCount, pendingCount, failedCount };
+  } catch (err) {
+    console.error('Error executing sendSosResolvedAlerts:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   buildAlertMessage,
+  buildResolvedMessage,
   sendSosAlerts,
+  sendSosResolvedAlerts,
 };
+

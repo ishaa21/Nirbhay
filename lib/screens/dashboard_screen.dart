@@ -445,7 +445,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       setState(() => _activeSosIncident = null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('SOS incident marked as RESOLVED. Safety network updated.'),
+          content: Text('SOS resolved. Emergency contacts notified that you are safe now.'),
           backgroundColor: Color(0xFF2E7D32),
         ),
       );
