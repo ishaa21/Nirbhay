@@ -9,6 +9,7 @@ const {
   cancelSos,
   testSms,
   getGatewayStatus,
+  getMessageDetails,
   handleGatewayWebhook,
 } = require('../controllers/sosController');
 
@@ -27,6 +28,9 @@ router.post('/test-sms', testSms);
 
 // Check SMS Gateway server connectivity and registered device status
 router.get('/gateway-status', getGatewayStatus);
+
+// Inspect real-time status of a specific message ID from the gateway
+router.get('/messages/:id', getMessageDetails);
 
 // Retrieve active SOS incident for authenticated user
 router.get('/active', getActiveSos);

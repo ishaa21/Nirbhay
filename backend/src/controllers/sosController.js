@@ -458,6 +458,21 @@ const handleGatewayWebhook = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/sos/messages/:id
+ * Query real-time message status and carrier error details from gateway
+ */
+const getMessageDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const smsGateway = require('../services/smsGatewayService');
+    const statusData = await smsGateway.getMessageStatus(id);
+    return res.status(200).json({ messageId: id, statusData });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createSos,
   getActiveSos,
@@ -466,7 +481,9 @@ module.exports = {
   cancelSos,
   testSms,
   getGatewayStatus,
+  getMessageDetails,
   handleGatewayWebhook,
 };
+
 
 

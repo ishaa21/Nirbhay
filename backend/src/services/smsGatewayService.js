@@ -426,14 +426,49 @@ async function recalculateIncidentNotificationStatus(sosId) {
   }
 }
 
+/**
+ * Fetch detailed message status directly from the gateway server
+ * Endpoint: GET https://api.sms-gate.app/3rdparty/v1/messages/{id}
+ */
+async function getMessageStatus(messageId) {
+  const login = process.env.SMS_GATEWAY_LOGIN || process.env.SMS_GATEWAY_USERNAME;
+  const password = process.env.SMS_GATEWAY_PASSWORD;
+  if (!login || !password) return { error: 'Gateway credentials not set' };
+
+  const rawUrl = process.env.SMS_GATEWAY_URL || 'https://api.sms-gate.app/3rdparty/v1/messages';
+  const msgUrl = rawUrl.replace(/\/+$/, '') + '/' + encodeURIComponent(messageId);
+  const basicAuth = Buffer.from(`${login}:${password}`).toString('base64');
+
+  try {
+    const response = await fetch(msgUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      return { status: response.status, error: `Gateway returned HTTP ${response.status}` };
+    }
+
+    return await response.json();
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 module.exports = {
   maskPhone,
   maskString,
   normalizePhoneNumber,
   isGatewayConfigured,
   checkGatewayDeviceRegistration,
+  getMessageStatus,
   sendSms,
   verifyWebhookSignature,
   processWebhookEvent,
   recalculateIncidentNotificationStatus,
 };
+
