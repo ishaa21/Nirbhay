@@ -12,10 +12,14 @@ const {
   getMessageDetails,
   handleGatewayWebhook,
 } = require('../controllers/sosController');
+const { uploadLocation, getTrackingData } = require('../controllers/trackingController');
 
 // 1. Webhook endpoint for Android SMS Gateway delivery reports
 // Uses cryptographic HMAC-SHA256 signature verification via X-Signature header instead of user JWT
 router.post('/webhook/sms-gateway', handleGatewayWebhook);
+
+// 2. Public live tracking data endpoint — no JWT needed (opened by guardians via SMS link)
+router.get('/track/:token', getTrackingData);
 
 // 2. All subsequent user SOS routes require JWT Authentication
 router.use(authenticateToken);
@@ -43,5 +47,8 @@ router.patch('/:id/resolve', resolveSos);
 
 // Cancel an SOS incident
 router.patch('/:id/cancel', cancelSos);
+
+// Upload real-time GPS location for an active SOS incident (called by Flutter app periodically)
+router.post('/:id/location', uploadLocation);
 
 module.exports = router;

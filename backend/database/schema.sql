@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS sos_incidents (
     status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'RESOLVED', 'CANCELLED')),
     latitude NUMERIC(10, 7) CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90)),
     longitude NUMERIC(10, 7) CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180)),
+    tracking_token VARCHAR(255) UNIQUE,
     activated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMPTZ,
     cancelled_at TIMESTAMPTZ,
@@ -71,6 +72,7 @@ CREATE TABLE IF NOT EXISTS sos_incidents (
 
 CREATE INDEX IF NOT EXISTS idx_sos_incidents_user_id ON sos_incidents(user_id);
 CREATE INDEX IF NOT EXISTS idx_sos_incidents_status ON sos_incidents(status);
+CREATE INDEX IF NOT EXISTS idx_sos_incidents_tracking_token ON sos_incidents(tracking_token);
 
 -- Enforce maximum of ONE ACTIVE SOS incident per user at a time
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_incidents_user_active ON sos_incidents(user_id) WHERE status = 'ACTIVE';
@@ -80,6 +82,18 @@ CREATE TRIGGER update_sos_incidents_updated_at
     BEFORE UPDATE ON sos_incidents
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- SOS Real-Time Location Updates (Breadcrumbs)
+CREATE TABLE IF NOT EXISTS sos_location_updates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sos_id UUID NOT NULL REFERENCES sos_incidents(id) ON DELETE CASCADE,
+    latitude NUMERIC(10, 7) NOT NULL CHECK (latitude >= -90 AND latitude <= 90),
+    longitude NUMERIC(10, 7) NOT NULL CHECK (longitude >= -180 AND longitude <= 180),
+    accuracy NUMERIC(8, 2),
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sos_location_updates_sos_id ON sos_location_updates(sos_id);
 
 -- SOS Notifications Log Table
 CREATE TABLE IF NOT EXISTS sos_notifications (

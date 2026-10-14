@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const crypto = require('crypto');
 const { sendSosAlerts } = require('../services/notificationService');
 
 /**
@@ -52,22 +53,30 @@ const createSos = async (req, res) => {
       });
     }
 
-    // 2. Create new SOS incident
+    // 2. Generate a secure tracking token for guardian map link
+    const trackingToken = crypto.randomBytes(24).toString('hex');
+
+    // 3. Create new SOS incident
     const insertQuery = `
-      INSERT INTO sos_incidents (user_id, status, latitude, longitude, activated_at, notification_status)
-      VALUES ($1, 'ACTIVE', $2, $3, CURRENT_TIMESTAMP, 'PENDING')
+      INSERT INTO sos_incidents (user_id, status, latitude, longitude, activated_at, notification_status, tracking_token)
+      VALUES ($1, 'ACTIVE', $2, $3, CURRENT_TIMESTAMP, 'PENDING', $4)
       RETURNING *
     `;
-    const result = await db.query(insertQuery, [userId, cleanLat, cleanLng]);
+    const result = await db.query(insertQuery, [userId, cleanLat, cleanLng, trackingToken]);
     const newIncident = result.rows[0];
 
-    // 3. Dispatch notifications asynchronously (or await notification dispatch)
+    // 4. Build tracking URL for guardians
+    const backendBaseUrl = process.env.BACKEND_BASE_URL || 'https://nirbhay-9d5i.onrender.com';
+    const trackingUrl = `${backendBaseUrl}/track/${trackingToken}`;
+
+    // 5. Dispatch notifications asynchronously (or await notification dispatch)
     const notificationSummary = await sendSosAlerts({
       sosId: newIncident.id,
       userId,
       latitude: cleanLat,
       longitude: cleanLng,
       activatedAt: newIncident.activated_at,
+      trackingUrl,
     });
 
     // Re-fetch updated incident to get final notification_status

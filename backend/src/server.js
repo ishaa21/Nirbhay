@@ -7,6 +7,7 @@ const userRoutes = require('./routes/userRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const sosRoutes = require('./routes/sosRoutes');
 
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -14,6 +15,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve mobile-friendly live emergency tracking web application
+app.get('/track/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'tracking.html'));
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);

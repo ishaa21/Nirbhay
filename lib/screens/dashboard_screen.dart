@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/sos_model.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/sos_service.dart';
+import '../services/location_update_service.dart';
 import 'map_screen.dart';
 import 'contacts_screen.dart';
 import 'profile_screen.dart';
@@ -64,8 +67,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         _isLoadingActiveSos = false;
         if (res['success'] == true && res['active'] == true) {
           _activeSosIncident = res['incident'];
+          // Resume location tracking if we have an active incident on app reopen
+          final incident = res['incident'] as SosIncidentModel?;
+          if (incident != null) {
+            LocationUpdateService().start(incident.id);
+          }
         } else {
           _activeSosIncident = null;
+          LocationUpdateService().stop();
         }
       });
     }
@@ -74,6 +83,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _sosAnimController.dispose();
+    // Stop location tracking when leaving dashboard (app goes to background)
+    LocationUpdateService().stop();
     super.dispose();
   }
 
@@ -315,6 +326,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (res['success'] == true) {
       final incident = res['incident'] as SosIncidentModel;
       setState(() => _activeSosIncident = incident);
+      // Start periodic location uploads for this new SOS incident
+      LocationUpdateService().start(incident.id);
       _showSosSuccessModal(incident, res['notifications']);
     } else if (res['alreadyActive'] == true) {
       final incident = res['incident'] as SosIncidentModel?;
@@ -442,6 +455,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (!mounted) return;
 
     if (res['success'] == true) {
+      LocationUpdateService().stop();
       setState(() => _activeSosIncident = null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -461,6 +475,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (!mounted) return;
 
     if (res['success'] == true) {
+      LocationUpdateService().stop();
       setState(() => _activeSosIncident = null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -710,6 +725,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildActiveSosCard(SosIncidentModel incident) {
+    final trackingUrl = incident.trackingUrl;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -765,6 +781,43 @@ class _DashboardScreenState extends State<DashboardScreen>
               style: const TextStyle(fontSize: 12, color: Color(0xFFBBAFB5)),
             ),
           ],
+          // ── Tracking Link Button ──────────────────────────────────
+          if (trackingUrl != null) ...[
+            const SizedBox(height: 12),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _shareTrackingLink(trackingUrl),
+                onLongPress: () => _copyTrackingLink(trackingUrl),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3A1A2E),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE57373), width: 1),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.share_location_outlined, color: Color(0xFFFF8A80), size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Share Live Tracking Link with Guardians',
+                          style: TextStyle(
+                            color: Color(0xFFFF8A80),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.open_in_new, color: Color(0xFFFF8A80), size: 14),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -798,6 +851,34 @@ class _DashboardScreenState extends State<DashboardScreen>
         ],
       ),
     );
+  }
+
+  /// Opens the tracking URL in the system browser / share sheet
+  Future<void> _shareTrackingLink(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _copyTrackingLink(url);
+      }
+    } catch (_) {
+      _copyTrackingLink(url);
+    }
+  }
+
+  /// Copies the tracking link to clipboard as fallback
+  void _copyTrackingLink(String url) {
+    Clipboard.setData(ClipboardData(text: url));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tracking link copied to clipboard!'),
+          backgroundColor: Color(0xFF2A1020),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Widget _buildHomePage() {

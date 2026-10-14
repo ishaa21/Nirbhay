@@ -8,6 +8,8 @@ class SosIncidentModel {
   final DateTime? resolvedAt;
   final DateTime? cancelledAt;
   final String notificationStatus;
+  /// Secure token used to build the guardian tracking URL
+  final String? trackingToken;
 
   SosIncidentModel({
     required this.id,
@@ -19,7 +21,14 @@ class SosIncidentModel {
     this.resolvedAt,
     this.cancelledAt,
     required this.notificationStatus,
+    this.trackingToken,
   });
+
+  /// Returns the public guardian live-tracking URL, or null if no token is available
+  String? get trackingUrl {
+    if (trackingToken == null || trackingToken!.isEmpty) return null;
+    return 'https://nirbhay-9d5i.onrender.com/track/$trackingToken';
+  }
 
   factory SosIncidentModel.fromJson(Map<String, dynamic> json) {
     return SosIncidentModel(
@@ -34,6 +43,7 @@ class SosIncidentModel {
       resolvedAt: json['resolved_at'] != null ? DateTime.parse(json['resolved_at']) : null,
       cancelledAt: json['cancelled_at'] != null ? DateTime.parse(json['cancelled_at']) : null,
       notificationStatus: json['notification_status'] ?? json['notificationStatus'] ?? 'PENDING',
+      trackingToken: json['tracking_token'] ?? json['trackingToken'],
     );
   }
 
@@ -48,6 +58,7 @@ class SosIncidentModel {
       'resolved_at': resolvedAt?.toIso8601String(),
       'cancelled_at': cancelledAt?.toIso8601String(),
       'notification_status': notificationStatus,
+      'tracking_token': trackingToken,
     };
   }
 

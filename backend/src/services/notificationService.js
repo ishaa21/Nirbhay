@@ -2,9 +2,9 @@ const db = require('../config/db');
 const smsGateway = require('./smsGatewayService');
 
 /**
- * Format SMS alert body with timestamp and Google Maps location link
+ * Format SMS alert body with timestamp, Google Maps location link, and live tracking URL
  */
-function buildAlertMessage({ activatedAt, latitude, longitude }) {
+function buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl }) {
   const timeStr = new Date(activatedAt || Date.now()).toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     dateStyle: 'medium',
@@ -20,7 +20,12 @@ function buildAlertMessage({ activatedAt, latitude, longitude }) {
     }
   }
 
-  return `EMERGENCY ALERT: Nirbhay SOS activated at ${timeStr}. ${locationStr}. Please check immediately.`;
+  let trackingStr = '';
+  if (trackingUrl) {
+    trackingStr = ` Live Tracking: ${trackingUrl}`;
+  }
+
+  return `EMERGENCY ALERT: Nirbhay SOS activated at ${timeStr}. ${locationStr}.${trackingStr} Please check immediately.`;
 }
 
 /**
@@ -34,7 +39,7 @@ function buildAlertMessage({ activatedAt, latitude, longitude }) {
  * @param {number|null} params.longitude - Initial longitude if available
  * @param {Date} params.activatedAt - Incident timestamp
  */
-async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt }) {
+async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, trackingUrl }) {
   try {
     // 1. Fetch user's saved emergency contacts where auto_alert is enabled
     const contactsResult = await db.query(
@@ -55,8 +60,8 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt }
       return { status: 'NO_CONTACTS', sentCount: 0, pendingCount: 0, failedCount: 0, logs: [] };
     }
 
-    // 2. Format alert message content
-    const messageBody = buildAlertMessage({ activatedAt, latitude, longitude });
+    // 2. Format alert message content (includes tracking URL when available)
+    const messageBody = buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl });
 
     // 3. Provider Configuration Check
     const isGatewayConfigured = smsGateway.isGatewayConfigured();

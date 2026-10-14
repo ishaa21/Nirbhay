@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Nirbhay - Live Emergency Tracking</title>
+  
+  <!-- Google Fonts & Leaflet Map CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #0f070d;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Emergency Header */
+    header {
+      background: rgba(30, 12, 24, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #d32f2f, #301427);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ffffff;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: #e0a3c2;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .status-active {
+      background: rgba(211, 47, 47, 0.2);
+      border: 1px solid #d32f2f;
+      color: #ff5252;
+    }
+
+    .status-resolved {
+      background: rgba(46, 125, 50, 0.2);
+      border: 1px solid #2e7d32;
+      color: #4caf50;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Map Viewport */
+    #map-container {
+      position: relative;
+      flex: 1;
+      min-height: 55vh;
+      width: 100%;
+      background: #1a1619;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+      min-height: 55vh;
+    }
+
+    /* Floating Center Button */
+    .recenter-btn {
+      position: absolute;
+      bottom: 20px;
+      right: 18px;
+      z-index: 500;
+      background: rgba(48, 20, 39, 0.92);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    /* Live Info Panel */
+    .info-card {
+      background: #180c14;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 18px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .info-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .user-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .update-time {
+      font-size: 12px;
+      color: #b5a4ad;
+      margin-top: 3px;
+    }
+
+    .coords-tag {
+      font-family: monospace;
+      font-size: 12px;
+      color: #e0a3c2;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    /* Action Buttons */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-maps {
+      background: linear-gradient(135deg, #4285f4, #1967d2);
+      color: #ffffff;
+    }
+
+    .btn-emergency {
+      background: linear-gradient(135deg, #d32f2f, #b71c1c);
+      color: #ffffff;
+    }
+
+    /* Resolved Overlay Banner */
+    .resolved-banner {
+      background: #132415;
+      border: 1px solid #2e7d32;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      display: none;
+    }
+
+    .resolved-banner h3 {
+      color: #4caf50;
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .resolved-banner p {
+      font-size: 13px;
+      color: #c8e6c9;
+    }
+
+    /* Error View */
+    #error-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+      min-height: 80vh;
+    }
+
+    .error-icon {
+      font-size: 54px;
+      color: #d32f2f;
+      margin-bottom: 16px;
+    }
+
+    /* Custom Leaflet Marker Styling */
+    .custom-sos-marker {
+      position: relative;
+      width: 24px;
+      height: 24px;
+    }
+
+    .marker-dot {
+      width: 20px;
+      height: 20px;
+      background: #d32f2f;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(211, 47, 47, 0.8);
+    }
+
+    .marker-wave {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(211, 47, 47, 0.35);
+      animation: wave 1.8s infinite ease-out;
+    }
+
+    @keyframes wave {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">N</div>
+      <div>
+        <div class="brand-title">NIRBHAY</div>
+        <div class="brand-sub">Live Guardian Shield</div>
+      </div>
+    </div>
+    <div id="status-badge" class="status-badge status-active">
+      <div class="pulse-dot"></div>
+      <span id="status-text">LIVE ALERT</span>
+    </div>
+  </header>
+
+  <!-- Error View (If expired or invalid) -->
+  <div id="error-view">
+    <div class="error-icon">⚠️</div>
+    <h2 id="error-title" style="font-size: 20px; margin-bottom: 8px;">Link Inactive or Expired</h2>
+    <p id="error-desc" style="color: #b5a4ad; font-size: 14px; max-width: 320px;">
+      This live emergency tracking link is no longer active. The incident may have ended or the link is invalid.
+    </p>
+  </div>
+
+  <!-- Live Content View -->
+  <main id="main-content" style="display: flex; flex-direction: column; flex: 1;">
+    <div id="map-container">
+      <div id="map"></div>
+      <button class="recenter-btn" id="recenter-btn" title="Center on latest location">🎯</button>
+    </div>
+
+    <div class="info-card">
+      <!-- Resolved Banner (Shown when incident status changes to RESOLVED/CANCELLED) -->
+      <div id="resolved-banner" class="resolved-banner">
+        <h3>🛡️ USER IS SAFE NOW</h3>
+        <p id="resolved-time-text">The emergency SOS alert has been marked as resolved. No further action is required.</p>
+      </div>
+
+      <div class="info-header" id="active-info-header">
+        <div>
+          <div class="user-name" id="user-display-name">Locating User...</div>
+          <div class="update-time" id="last-update-text">Connecting to real-time satellite feed...</div>
+        </div>
+        <div class="coords-tag" id="coords-text">--.----, --.----</div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions-grid">
+        <a id="btn-google-maps" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-maps">
+          <span>🗺️</span> Open in Google Maps
+        </a>
+        <a href="tel:112" class="btn btn-emergency">
+          <span>🚨</span> Call Police (112)
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Leaflet Map Script -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    // Extract tracking token from URL pathname: /track/{token}
+    const pathParts = window.location.pathname.split('/');
+    const token = pathParts[pathParts.length - 1] || '';
+
+    let map = null;
+    let marker = null;
+    let accuracyCircle = null;
+    let pathLine = null;
+    let pathCoordinates = [];
+    let latestLat = null;
+    let latestLng = null;
+    let pollInterval = null;
+
+    // Initialize Leaflet Map
+    function initMap(lat, lng) {
+      map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([lat, lng], 16);
+
+      // OpenStreetMap Tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      // Custom Pulsing SOS Marker
+      const customIcon = L.divIcon({
+        className: 'custom-sos-marker',
+        html: '<div class="marker-wave"></div><div class="marker-dot"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+      accuracyCircle = L.circle([lat, lng], {
+        radius: 30,
+        color: '#d32f2f',
+        fillColor: '#d32f2f',
+        fillOpacity: 0.12,
+        weight: 1
+      }).addTo(map);
+
+      pathLine = L.polyline([[lat, lng]], {
+        color: '#ff5252',
+        weight: 3,
+        dashArray: '4, 8'
+      }).addTo(map);
+    }
+
+    function updateMapLocation(lat, lng, accuracy) {
+      if (!map) {
+        initMap(lat, lng);
+      } else {
+        marker.setLatLng([lat, lng]);
+        if (accuracyCircle) {
+          accuracyCircle.setLatLng([lat, lng]);
+          if (accuracy) accuracyCircle.setRadius(accuracy);
+        }
+        pathCoordinates.push([lat, lng]);
+        if (pathLine) pathLine.setLatLngs(pathCoordinates);
+      }
+    }
+
+    // Format human-friendly relative time (e.g. "Updated 5 seconds ago")
+    function formatRelativeTime(dateString) {
+      if (!dateString) return 'Just now';
+      const now = new Date();
+      const updated = new Date(dateString);
+      const diffSecs = Math.floor((now - updated) / 1000);
+
+      if (diffSecs < 10) return 'Updated just now';
+      if (diffSecs < 60) return `Updated ${diffSecs}s ago`;
+      const diffMins = Math.floor(diffSecs / 60);
+      if (diffMins < 60) return `Updated ${diffMins}m ago`;
+      return updated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function fetchTrackingStatus() {
+      if (!token) {
+        showError('Invalid Link', 'No tracking token provided in URL.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/sos/track/${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError('Link Expired or Inactive', data.message || 'Tracking is no longer active.');
+          if (pollInterval) clearInterval(pollInterval);
+          return;
+        }
+
+        // Case 1: Incident is RESOLVED or CANCELLED
+        if (data.status === 'RESOLVED' || data.status === 'CANCELLED') {
+          handleResolvedState(data);
+          if (pollInterval) clearInterval(pollInterval);
+          return;
+        }
+
+        // Case 2: Incident is ACTIVE
+        if (data.active && data.latitude && data.longitude) {
+          const lat = parseFloat(data.latitude);
+          const lng = parseFloat(data.longitude);
+          latestLat = lat;
+          latestLng = lng;
+
+          document.getElementById('user-display-name').textContent = `${data.userName}'s Live Location`;
+          document.getElementById('last-update-text').textContent = formatRelativeTime(data.lastUpdatedAt || data.activatedAt);
+          document.getElementById('coords-text').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+          // Update navigation links
+          document.getElementById('btn-google-maps').href = `https://maps.google.com/?q=${lat},${lng}`;
+
+          updateMapLocation(lat, lng, 35);
+        } else {
+          document.getElementById('last-update-text').textContent = 'Waiting for GPS fix from user phone...';
+        }
+      } catch (err) {
+        console.warn('Network issue fetching live tracking update:', err);
+      }
+    }
+
+    function handleResolvedState(data) {
+      document.getElementById('status-badge').className = 'status-badge status-resolved';
+      document.getElementById('status-text').textContent = 'RESOLVED';
+      document.querySelector('.pulse-dot').style.animation = 'none';
+
+      document.getElementById('resolved-banner').style.display = 'block';
+      if (data.resolvedAt) {
+        const timeStr = new Date(data.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('resolved-time-text').textContent = `The emergency alert was safely resolved at ${timeStr}. The user is safe.`;
+      }
+
+      // Hide live coordinates for privacy once incident is resolved
+      document.getElementById('coords-text').style.display = 'none';
+      document.getElementById('last-update-text').textContent = 'Live stream ended.';
+    }
+
+    function showError(title, desc) {
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('error-view').style.display = 'flex';
+      document.getElementById('error-title').textContent = title;
+      document.getElementById('error-desc').textContent = desc;
+      document.getElementById('status-badge').style.display = 'none';
+    }
+
+    // Recenter map button
+    document.getElementById('recenter-btn')?.addEventListener('click', () => {
+      if (map && latestLat && latestLng) {
+        map.setView([latestLat, latestLng], 16, { animate: true });
+      }
+    });
+
+    // Initial Fetch & Start Polling every 5 seconds
+    fetchTrackingStatus();
+    pollInterval = setInterval(fetchTrackingStatus, 5000);
+  </script>
+</body>
+</html>
