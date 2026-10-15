@@ -1,17 +1,95 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/sos_model.dart';
+import '../services/sos_service.dart';
+import '../services/location_update_service.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CallerAvatarPreset
+// ─────────────────────────────────────────────────────────────────────────────
+class CallerAvatarPreset {
+  final String label;
+  final String defaultName;
+  final IconData icon;
+  final Color bgColor;
+  final Color iconColor;
+  final String subtitle;
+
+  const CallerAvatarPreset({
+    required this.label,
+    required this.defaultName,
+    required this.icon,
+    required this.bgColor,
+    required this.iconColor,
+    required this.subtitle,
+  });
+}
+
+const List<CallerAvatarPreset> kCallerPresets = [
+  CallerAvatarPreset(
+    label: 'Mom',
+    defaultName: 'Mom',
+    icon: Icons.person_rounded,
+    bgColor: Color(0xFFFCE4EC),
+    iconColor: Color(0xFFC2185B),
+    subtitle: 'Mobile',
+  ),
+  CallerAvatarPreset(
+    label: 'Dad',
+    defaultName: 'Dad',
+    icon: Icons.person_outline_rounded,
+    bgColor: Color(0xFFE8EAF6),
+    iconColor: Color(0xFF303F9F),
+    subtitle: 'Home',
+  ),
+  CallerAvatarPreset(
+    label: 'Boss',
+    defaultName: 'Office / Boss',
+    icon: Icons.work_outline_rounded,
+    bgColor: Color(0xFFECEFF1),
+    iconColor: Color(0xFF37474F),
+    subtitle: 'Work',
+  ),
+  CallerAvatarPreset(
+    label: 'Police',
+    defaultName: 'Police Department',
+    icon: Icons.local_police_outlined,
+    bgColor: Color(0xFFE3F2FD),
+    iconColor: Color(0xFF1565C0),
+    subtitle: 'Emergency Service',
+  ),
+  CallerAvatarPreset(
+    label: 'Doctor',
+    defaultName: 'Dr. Sharma',
+    icon: Icons.medical_services_outlined,
+    bgColor: Color(0xFFE0F2F1),
+    iconColor: Color(0xFF00796B),
+    subtitle: 'Hospital',
+  ),
+  CallerAvatarPreset(
+    label: 'Friend',
+    defaultName: 'Priya (Friend)',
+    icon: Icons.favorite_outline_rounded,
+    bgColor: Color(0xFFEDE7F6),
+    iconColor: Color(0xFF673AB7),
+    subtitle: 'Mobile',
+  ),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FakeCallScreen
+// ─────────────────────────────────────────────────────────────────────────────
 class FakeCallScreen extends StatefulWidget {
   const FakeCallScreen({super.key});
 
   @override
-  State<FakeCallScreen> createState() => _FakeCallScreenState();
+  State<FakeCallScreen> createState() => FakeCallScreenState();
 }
 
-class _FakeCallScreenState extends State<FakeCallScreen>
-    with SingleTickerProviderStateMixin {
-  // ── Colour tokens ─────────────────────────────────────────────────
+class FakeCallScreenState extends State<FakeCallScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  // ── Color tokens ──────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF301427);
   static const Color _surface = Color(0xFFFCF8F9);
   static const Color _cardBg = Color(0xFFFFFFFF);
@@ -19,78 +97,257 @@ class _FakeCallScreenState extends State<FakeCallScreen>
   static const Color _onSurfaceVariant = Color(0xFF4E4449);
   static const Color _primaryFixed = Color(0xFFFFD8ED);
   static const Color _primaryContainer = Color(0xFF48293D);
-  static const Color _secondaryContainer = Color(0xFFF2D9E4);
-  static const Color _onSecondaryContainer = Color(0xFF705D67);
-  static const Color _surfaceContainer = Color(0xFFF0EDEE);
   static const Color _outlineVariant = Color(0xFFD1C3C9);
+  static const Color _error = Color(0xFFBA1A1A);
+  static const Color _success = Color(0xFF2E7D32);
 
-  // ── State ──────────────────────────────────────────────────────────
-  String _selectedSchedule = 'Immediately';
-  String _selectedCaller = 'Mom';
-  bool _showToast = false;
-  bool _showIncomingCall = false;
-  Timer? _scheduleTimer;
-  Timer? _toastTimer;
+  // ── State ─────────────────────────────────────────────────────────────────
+  late TextEditingController callerNameController;
+  int selectedDelaySeconds = 0; // 0 = Immediately, 10, 30, 60
+  CallerAvatarPreset selectedPreset = kCallerPresets[0];
 
-  // ── Pulse animation ────────────────────────────────────────────────
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnim;
+  bool isArmed = false;
+  int countdownRemainingSeconds = 0;
+  DateTime? scheduledFireTime;
+  Timer? countdownTimer;
 
-  final List<String> _callerNames = ['Mom', 'Boss', 'Pizza Delivery', 'Private Number'];
+  bool showIncomingOverlay = false;
+  bool isCallConnected = false;
+  int callDurationSeconds = 0;
+  Timer? callDurationTimer;
+
+  // ── Pulse animation for incoming ring ──────────────────────────────────────
+  late AnimationController pulseController;
+  late Animation<double> pulseAnim;
+
+  // ── Vibration / Ringtone simulator ────────────────────────────────────────
+  Timer? hapticRingerTimer;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
+    WidgetsBinding.instance.addObserver(this);
+
+    callerNameController = TextEditingController(text: selectedPreset.defaultName);
+
+    pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.85, end: 1.15).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    pulseAnim = Tween<double>(begin: 0.9, end: 1.15).animate(
+      CurvedAnimation(parent: pulseController, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _scheduleTimer?.cancel();
-    _toastTimer?.cancel();
-    _pulseController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    countdownTimer?.cancel();
+    callDurationTimer?.cancel();
+    hapticRingerTimer?.cancel();
+    callerNameController.dispose();
+    pulseController.dispose();
     super.dispose();
   }
 
-  void _deployFakeCall() {
-    // Show toast
-    setState(() => _showToast = true);
-    _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _showToast = false);
+  // ── App Lifecycle (Requirement 4) ─────────────────────────────────────────
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && isArmed && scheduledFireTime != null) {
+      final now = DateTime.now();
+      if (now.isAfter(scheduledFireTime!)) {
+        // Time elapsed while app was paused or in background
+        _triggerIncomingCall();
+      } else {
+        // Recalculate remaining seconds accurately
+        setState(() {
+          countdownRemainingSeconds = scheduledFireTime!.difference(now).inSeconds;
+        });
+      }
+    }
+  }
+
+  // ── Action Handlers ───────────────────────────────────────────────────────
+  void armFakeCall() {
+    if (selectedDelaySeconds == 0) {
+      // Immediate trigger
+      _triggerIncomingCall();
+      return;
+    }
+
+    final fireAt = DateTime.now().add(Duration(seconds: selectedDelaySeconds));
+    setState(() {
+      isArmed = true;
+      scheduledFireTime = fireAt;
+      countdownRemainingSeconds = selectedDelaySeconds;
     });
 
-    // Schedule the call
-    final delay = _selectedSchedule == 'Immediately'
-        ? const Duration(seconds: 1)
-        : _selectedSchedule == 'In 5 Minutes'
-            ? const Duration(minutes: 5)
-            : const Duration(seconds: 1);
-
-    _scheduleTimer?.cancel();
-    _scheduleTimer = Timer(delay, () {
-      if (mounted) {
-        setState(() => _showIncomingCall = true);
-        HapticFeedback.heavyImpact();
+    countdownTimer?.cancel();
+    countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final remaining = scheduledFireTime!.difference(DateTime.now()).inSeconds;
+      if (remaining <= 0) {
+        timer.cancel();
+        _triggerIncomingCall();
+      } else {
+        setState(() {
+          countdownRemainingSeconds = remaining;
+        });
       }
     });
+
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Fake call armed! Incoming call in $selectedDelaySeconds seconds.'),
+        backgroundColor: _primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
-  void _dismissCall() {
-    setState(() => _showIncomingCall = false);
+  void cancelScheduledCall() {
+    countdownTimer?.cancel();
+    setState(() {
+      isArmed = false;
+      scheduledFireTime = null;
+      countdownRemainingSeconds = 0;
+    });
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Scheduled fake call cancelled.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
+  void _triggerIncomingCall() {
+    countdownTimer?.cancel();
+    setState(() {
+      isArmed = false;
+      scheduledFireTime = null;
+      countdownRemainingSeconds = 0;
+      showIncomingOverlay = true;
+      isCallConnected = false;
+      callDurationSeconds = 0;
+    });
+
+    // Start periodic haptic vibration to simulate ringtone
+    _startHapticRinger();
+  }
+
+  void _startHapticRinger() {
+    hapticRingerTimer?.cancel();
+    try {
+      HapticFeedback.heavyImpact();
+      SystemSound.play(SystemSoundType.alert);
+    } catch (_) {}
+
+    hapticRingerTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
+      if (!mounted || !showIncomingOverlay || isCallConnected) {
+        hapticRingerTimer?.cancel();
+        return;
+      }
+      try {
+        HapticFeedback.vibrate();
+        SystemSound.play(SystemSoundType.alert);
+      } catch (_) {}
+    });
+  }
+
+  void handleAcceptCall() {
+    hapticRingerTimer?.cancel();
+    HapticFeedback.mediumImpact();
+    setState(() {
+      isCallConnected = true;
+      callDurationSeconds = 0;
+    });
+
+    callDurationTimer?.cancel();
+    callDurationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !showIncomingOverlay) {
+        callDurationTimer?.cancel();
+        return;
+      }
+      setState(() {
+        callDurationSeconds++;
+      });
+    });
+  }
+
+  void handleDeclineOrEndCall() {
+    hapticRingerTimer?.cancel();
+    callDurationTimer?.cancel();
+    HapticFeedback.lightImpact();
+    setState(() {
+      showIncomingOverlay = false;
+      isCallConnected = false;
+      callDurationSeconds = 0;
+    });
+  }
+
+  Future<void> _handleEmergencyEscalation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_rounded, color: _error, size: 24),
+            SizedBox(width: 8),
+            Text('Activate Real SOS?', style: TextStyle(color: _error, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'This will IMMEDIATELY notify your saved emergency contacts with your live location. Use only if in real danger.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Trigger Real SOS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    handleDeclineOrEndCall();
+    final res = await SosService().createSos();
+    if (!mounted) return;
+    if (res['success'] == true) {
+      final incident = res['incident'] as SosIncidentModel?;
+      if (incident != null) {
+        LocationUpdateService().start(incident.id);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🚨 Real SOS Alert Triggered! Contacts notified.'),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  String _formatDuration(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // ── Main Screen ──────────────────────────────────────────────
+        // Base Setup Screen
         Scaffold(
           backgroundColor: _surface,
           body: SafeArea(
@@ -101,75 +358,27 @@ class _FakeCallScreenState extends State<FakeCallScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(),
+                  const SizedBox(height: 16),
+                  if (isArmed) ...[
+                    _buildArmedCountdownCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildCallerCustomizationCard(),
+                  const SizedBox(height: 16),
+                  _buildDelaySelector(),
+                  const SizedBox(height: 16),
+                  _buildAndroidRestrictionInfoCard(),
                   const SizedBox(height: 24),
-                  _buildSetupGrid(),
-                  const SizedBox(height: 24),
-                  _buildPreviewSection(),
-                  const SizedBox(height: 20),
-                  _buildStealthHint(),
-                  const SizedBox(height: 28),
-                  _buildDeployButton(),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      'The call will appear exactly like a real system notification.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: _onSurfaceVariant.withOpacity(0.8)),
-                    ),
-                  ),
+                  _buildTriggerButton(),
                 ],
               ),
             ),
           ),
         ),
 
-        // ── Toast ────────────────────────────────────────────────────
-        Positioned(
-          top: 80,
-          left: 0,
-          right: 0,
-          child: AnimatedSlide(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutBack,
-            offset: _showToast ? Offset.zero : const Offset(0, -2),
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _showToast ? 1 : 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: _onSurface,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_circle_rounded, color: Color(0xFF4CAF50), size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Call Armed: $_selectedSchedule',
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // ── Incoming Call Overlay ────────────────────────────────────
-        if (_showIncomingCall)
-          _IncomingCallOverlay(
-            callerName: _selectedCaller,
-            pulseAnim: _pulseAnim,
-            onDecline: _dismissCall,
-            onAccept: _dismissCall,
-          ),
+        // Simulated Incoming or In-Call Full-Screen Overlay
+        if (showIncomingOverlay)
+          _buildSimulatedCallOverlay(),
       ],
     );
   }
@@ -180,355 +389,454 @@ class _FakeCallScreenState extends State<FakeCallScreen>
       children: [
         Row(
           children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: const Icon(Icons.arrow_back_ios_new_rounded, color: _primary, size: 20),
+            ),
+            const SizedBox(width: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: _primaryFixed,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '04',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _primaryContainer),
-              ),
+              decoration: BoxDecoration(color: _primaryFixed, borderRadius: BorderRadius.circular(6)),
+              child: const Text('04', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _primaryContainer)),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.phone_callback_rounded, color: _primary, size: 18),
+            const Icon(Icons.phone_callback_rounded, color: _primary, size: 20),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         const Text(
-          'Fake Call Generator',
+          'Fake Call Simulator',
           style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: _primary, height: 1.2),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         const Text(
-          'Simulates an incoming call to help you exit uncomfortable or unsafe situations discreetly.',
+          'Simulate a realistic incoming call to discreetly exit unsafe or uncomfortable situations.',
           style: TextStyle(fontSize: 14, color: _onSurfaceVariant, height: 1.4),
         ),
       ],
     );
   }
 
-  Widget _buildSetupGrid() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Schedule Card ─────────────────────────────────────────────
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _outlineVariant.withOpacity(0.6)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Schedule', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _primary)),
-                const SizedBox(height: 12),
-                ...[
-                  ('Immediately', Icons.bolt_rounded),
-                  ('In 5 Minutes', Icons.timer_outlined),
-                  ('Custom Time', Icons.edit_calendar_outlined),
-                ].map((item) {
-                  final isSelected = _selectedSchedule == item.$1;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedSchedule = item.$1),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? _primary.withOpacity(0.08) : _surfaceContainer,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected ? _primary : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              item.$1,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? _primary : _onSurfaceVariant,
-                              ),
-                            ),
-                            Icon(item.$2, size: 16, color: isSelected ? _primary : _onSurfaceVariant),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ],
+  Widget _buildArmedCountdownCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _success.withOpacity(0.5), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.ring_volume_rounded, color: _success, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Call Armed: Ringing in ${countdownRemainingSeconds}s',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _success),
+                ),
+              ),
+              IconButton(
+                onPressed: cancelScheduledCall,
+                icon: const Icon(Icons.close_rounded, color: _error),
+                tooltip: 'Cancel Call',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: selectedDelaySeconds > 0 ? (countdownRemainingSeconds / selectedDelaySeconds) : 0,
+            backgroundColor: Colors.white,
+            valueColor: const AlwaysStoppedAnimation<Color>(_success),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: cancelScheduledCall,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _error,
+                side: const BorderSide(color: _error),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('CANCEL SCHEDULED CALL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
 
-        // ── Identity Card ─────────────────────────────────────────────
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _outlineVariant.withOpacity(0.6)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Identity', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _primary)),
-                const SizedBox(height: 12),
-                Text('Caller Name', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _onSurfaceVariant, letterSpacing: 0.5)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _surfaceContainer,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _outlineVariant.withOpacity(0.5)),
+  Widget _buildCallerCustomizationCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _outlineVariant.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('1. Caller Identity & Avatar', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+          const SizedBox(height: 12),
+
+          // Preset Avatars
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: kCallerPresets.map((preset) {
+                final isSelected = selectedPreset.label == preset.label;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedPreset = preset;
+                        callerNameController.text = preset.defaultName;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? _primaryFixed : _surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? _primary : _outlineVariant,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: preset.bgColor,
+                            child: Icon(preset.icon, color: preset.iconColor, size: 14),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            preset.label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? _primary : _onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedCaller,
-                      isExpanded: true,
-                      items: _callerNames.map((name) {
-                        return DropdownMenuItem(value: name, child: Text(name, style: const TextStyle(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedCaller = val!),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Custom Caller Name Input
+          TextField(
+            controller: callerNameController,
+            decoration: InputDecoration(
+              labelText: 'Caller Name',
+              hintText: 'e.g. Mom, Inspector Rao, Boss',
+              prefixIcon: Icon(selectedPreset.icon, color: selectedPreset.iconColor),
+              filled: true,
+              fillColor: _surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _outlineVariant)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _primary, width: 2)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDelaySelector() {
+    final delays = [
+      (0, 'Now', Icons.bolt_rounded),
+      (10, '10 sec', Icons.timer_outlined),
+      (30, '30 sec', Icons.schedule_rounded),
+      (60, '60 sec', Icons.hourglass_bottom_rounded),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _outlineVariant.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('2. Ring Delay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+          const SizedBox(height: 12),
+          Row(
+            children: delays.map((item) {
+              final seconds = item.$1;
+              final label = item.$2;
+              final icon = item.$3;
+              final isSelected = selectedDelaySeconds == seconds;
+
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: GestureDetector(
+                    onTap: isArmed ? null : () => setState(() => selectedDelaySeconds = seconds),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected ? _primaryFixed : _surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected ? _primary : _outlineVariant,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(icon, size: 20, color: isSelected ? _primary : _onSurfaceVariant),
+                          const SizedBox(height: 4),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? _primary : _onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Text('Caller Voice', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _onSurfaceVariant, letterSpacing: 0.5)),
-                const SizedBox(height: 6),
-                Row(
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAndroidRestrictionInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E5F5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCE93D8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.info_outline_rounded, color: Color(0xFF6A1B9A), size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Android Background Restriction Info',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Modern Android (Android 10+) restricts apps from launching full-screen screens directly from the background or lockscreen without special telecom permissions.\n\nKeep Nirbhay active or unlocked. If the screen is locked, the call screen triggers immediately upon unlocking.',
+            style: TextStyle(fontSize: 11.5, color: Color(0xFF311B92), height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTriggerButton() {
+    final String label = selectedDelaySeconds == 0
+        ? 'Ring Phone Immediately'
+        : 'Arm Call (${selectedDelaySeconds}s Delay)';
+
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: isArmed ? null : armFakeCall,
+        icon: const Icon(Icons.ring_volume_rounded, color: Colors.white, size: 22),
+        label: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _primary,
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Simulated Incoming / In-Call Full-Screen Overlay
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildSimulatedCallOverlay() {
+    final callerName = callerNameController.text.trim().isEmpty
+        ? selectedPreset.defaultName
+        : callerNameController.text.trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        color: const Color(0xFF0F0F11),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // ── Top Bar: Simulated Badge & SOS Shortcut ────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Voice recording coming soon'), behavior: SnackBarBehavior.floating),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _surfaceContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.mic_rounded, size: 16, color: _onSurfaceVariant),
-                              const SizedBox(width: 6),
-                              Text('Record', style: TextStyle(fontSize: 12, color: _onSurfaceVariant)),
-                            ],
-                          ),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'SIMULATED CALL • NIRBHAY',
+                        style: TextStyle(fontSize: 10, letterSpacing: 0.8, color: Colors.white70, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _secondaryContainer,
-                        borderRadius: BorderRadius.circular(10),
+                    // Quick Emergency Escalation Pill
+                    GestureDetector(
+                      onTap: _handleEmergencyEscalation,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _error.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text('REAL SOS', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
-                      child: Icon(Icons.play_circle_rounded, color: _onSecondaryContainer, size: 20),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPreviewSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text('Preview Screen', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: _primary)),
-            const SizedBox(width: 6),
-            Icon(Icons.visibility_outlined, size: 16, color: _onSurfaceVariant.withOpacity(0.6)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Center(child: _buildPhoneMockup()),
-      ],
-    );
-  }
-
-  Widget _buildPhoneMockup() {
-    return Container(
-      width: 200,
-      height: 380,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: const Color(0xFF3A3A3C), width: 6),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8)),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          // Notch
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 80,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1C1C1E),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                ),
               ),
-            ),
-          ),
-          // Incoming call content
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFF1C1C1E),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+              // ── Center Content: Caller Avatar & Info ───────────────
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Caller info
-                  Padding(
-                    padding: const EdgeInsets.only(top: 36),
-                    child: Column(
-                      children: [
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            ScaleTransition(
-                              scale: _pulseAnim,
-                              child: Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withOpacity(0.08),
-                                ),
-                              ),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (!isCallConnected)
+                        ScaleTransition(
+                          scale: pulseAnim,
+                          child: Container(
+                            width: 140,
+                            height: 140,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: selectedPreset.iconColor.withOpacity(0.15),
                             ),
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF3A3A3C),
-                              ),
-                              child: const Icon(Icons.person_rounded, color: Colors.white70, size: 28),
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _selectedCaller,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text('Mobile', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                      ],
-                    ),
+                      CircleAvatar(
+                        radius: 54,
+                        backgroundColor: selectedPreset.bgColor,
+                        child: Icon(selectedPreset.icon, color: selectedPreset.iconColor, size: 54),
+                      ),
+                    ],
                   ),
-                  // Buttons
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFFFF3B30),
-                              ),
-                              child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 22),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text('Decline', style: TextStyle(color: Colors.white54, fontSize: 9)),
-                          ],
-                        ),
-                        Column(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF34C759),
-                              ),
-                              child: const Icon(Icons.call_rounded, color: Colors.white, size: 22),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text('Accept', style: TextStyle(color: Colors.white54, fontSize: 9)),
-                          ],
-                        ),
-                      ],
+                  const SizedBox(height: 20),
+                  Text(
+                    callerName,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isCallConnected
+                        ? _formatDuration(callDurationSeconds)
+                        : (selectedPreset.subtitle.isNotEmpty ? selectedPreset.subtitle : 'Incoming Call'),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isCallConnected ? const Color(0xFF4CAF50) : Colors.white60,
+                      fontWeight: isCallConnected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ],
               ),
-            ),
+
+              // ── In-Call Controls or Incoming Action Buttons ──────────
+              if (isCallConnected)
+                _buildConnectedCallControls()
+              else
+                _buildIncomingCallActionButtons(),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildStealthHint() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _primaryContainer.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _primary.withOpacity(0.15)),
-      ),
+  Widget _buildIncomingCallActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 0, 40, 48),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(Icons.info_outline_rounded, color: _primary, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
+          // Decline Button
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: handleDeclineOrEndCall,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Stealth Activation', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _primary)),
-                const SizedBox(height: 4),
-                Text(
-                  'You can trigger a "Private Number" fake call by triple-pressing your power button or shaking your phone 3 times.',
-                  style: TextStyle(fontSize: 12, color: _onSurfaceVariant, height: 1.45),
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFFF3B30),
+                  ),
+                  child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 34),
                 ),
+                const SizedBox(height: 10),
+                const Text('Decline', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+
+          // Accept Button
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: handleAcceptCall,
+            child: Column(
+              children: [
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF34C759),
+                  ),
+                  child: const Icon(Icons.call_rounded, color: Colors.white, size: 34),
+                ),
+                const SizedBox(height: 10),
+                const Text('Accept', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -537,186 +845,68 @@ class _FakeCallScreenState extends State<FakeCallScreen>
     );
   }
 
-  Widget _buildDeployButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 60,
-      child: ElevatedButton(
-        onPressed: _deployFakeCall,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _primary,
-          elevation: 6,
-          shadowColor: _primary.withOpacity(0.35),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.bolt_rounded, size: 24, color: Colors.white),
-            SizedBox(width: 10),
-            Text('Deploy Fake Call', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
-}
+  Widget _buildConnectedCallControls() {
+    final controls = [
+      (Icons.mic_off_rounded, 'Mute'),
+      (Icons.dialpad_rounded, 'Keypad'),
+      (Icons.volume_up_rounded, 'Speaker'),
+      (Icons.add_rounded, 'Add Call'),
+      (Icons.videocam_rounded, 'Video'),
+      (Icons.contacts_rounded, 'Contacts'),
+    ];
 
-// ─────────────────────────────────────────────────────────────────
-//  Incoming Call Full-Screen Overlay
-// ─────────────────────────────────────────────────────────────────
-class _IncomingCallOverlay extends StatefulWidget {
-  final String callerName;
-  final Animation<double> pulseAnim;
-  final VoidCallback onDecline;
-  final VoidCallback onAccept;
-
-  const _IncomingCallOverlay({
-    required this.callerName,
-    required this.pulseAnim,
-    required this.onDecline,
-    required this.onAccept,
-  });
-
-  @override
-  State<_IncomingCallOverlay> createState() => _IncomingCallOverlayState();
-}
-
-class _IncomingCallOverlayState extends State<_IncomingCallOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _entryCtrl;
-  late Animation<double> _entryAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _entryCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    )..forward();
-    _entryAnim = CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void dispose() {
-    _entryCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero).animate(_entryAnim),
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          color: const Color(0xFF1C1C1E),
-          child: SafeArea(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 40),
+      child: Column(
+        children: [
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 18,
+            crossAxisSpacing: 18,
+            children: controls.map((c) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.12),
+                    ),
+                    child: Icon(c.$1, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(c.$2, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                ],
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 30),
+          // End Call Button
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: handleDeclineOrEndCall,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // ── Caller Info ──────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.only(top: 60),
-                  child: Column(
-                    children: [
-                      const Text('Incoming Call', style: TextStyle(color: Colors.white54, fontSize: 16)),
-                      const SizedBox(height: 24),
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ScaleTransition(
-                            scale: widget.pulseAnim,
-                            child: Container(
-                              width: 140,
-                              height: 140,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.06),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF3A3A3C),
-                            ),
-                            child: const Icon(Icons.person_rounded, color: Colors.white70, size: 52),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        widget.callerName,
-                        style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text('Mobile', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                    ],
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFFF3B30),
                   ),
+                  child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 36),
                 ),
-
-                // ── Action Buttons ───────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(48, 0, 48, 48),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _CallButton(
-                        icon: Icons.call_end_rounded,
-                        label: 'Decline',
-                        color: const Color(0xFFFF3B30),
-                        onTap: widget.onDecline,
-                      ),
-                      _CallButton(
-                        icon: Icons.call_rounded,
-                        label: 'Accept',
-                        color: const Color(0xFF34C759),
-                        onTap: widget.onAccept,
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox(height: 8),
+                const Text('End Call', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _CallButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _CallButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-            child: Icon(icon, color: Colors.white, size: 32),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-      ],
     );
   }
 }

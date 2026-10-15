@@ -12,6 +12,7 @@ import 'profile_screen.dart';
 import 'community_screen.dart';
 import 'safety_timer_screen.dart';
 import 'fake_call_screen.dart';
+import 'quick_escape_screen.dart';
 import 'live_tracking_screen.dart';
 import 'helplines_screen.dart';
 import 'safety_tips_screen.dart';
@@ -549,6 +550,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       'route': 'fake_call',
     },
     {
+      'icon': Icons.exit_to_app_rounded,
+      'title': 'Quick Escape',
+      'subtitle': 'Fast exit tools & shortcuts',
+      'route': 'quick_escape',
+    },
+    {
       'icon': Icons.support_agent_outlined,
       'title': 'Helplines',
       'subtitle': 'Local emergency contacts',
@@ -590,6 +597,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     screen = const LiveTrackingScreen();
                   } else if (route == 'fake_call') {
                     screen = const FakeCallScreen();
+                  } else if (route == 'quick_escape') {
+                    screen = const QuickEscapeScreen();
                   } else if (route == 'helplines') {
                     screen = const HelplinesScreen();
                   } else if (route == 'safety_tips') {
