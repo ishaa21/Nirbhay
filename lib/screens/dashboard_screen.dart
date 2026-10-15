@@ -15,6 +15,8 @@ import 'fake_call_screen.dart';
 import 'live_tracking_screen.dart';
 import 'helplines_screen.dart';
 import 'safety_tips_screen.dart';
+import '../models/safety_timer_model.dart';
+import '../services/safety_timer_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -33,6 +35,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   UserModel? _currentUser;
   SosIncidentModel? _activeSosIncident;
+  SafetyTimerModel? _activeSafetyTimer;
+  int? _timerRemainingMs;
   bool _isActivatingSos = false;
   bool _isLoadingActiveSos = false;
 
@@ -57,6 +61,22 @@ class _DashboardScreenState extends State<DashboardScreen>
       });
     }
     await _refreshActiveSos();
+    await _refreshActiveSafetyTimer();
+  }
+
+  Future<void> _refreshActiveSafetyTimer() async {
+    final res = await SafetyTimerService().getActiveTimer();
+    if (mounted) {
+      setState(() {
+        if (res['success'] == true && res['active'] == true) {
+          _activeSafetyTimer = res['timer'] as SafetyTimerModel?;
+          _timerRemainingMs = res['remainingMs'] as int?;
+        } else {
+          _activeSafetyTimer = null;
+          _timerRemainingMs = null;
+        }
+      });
+    }
   }
 
   Future<void> _refreshActiveSos() async {
@@ -579,7 +599,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                   }
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => screen),
-                  );
+                  ).then((_) {
+                    _refreshActiveSos();
+                    _refreshActiveSafetyTimer();
+                  });
                 },
         );
       },
@@ -881,6 +904,131 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  Widget _buildActiveSafetyTimerCard(SafetyTimerModel timer) {
+    final remainingSec = timer.remainingSeconds(_timerRemainingMs);
+    final m = remainingSec ~/ 60;
+    final s = remainingSec % 60;
+    final timeStr = '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    final bool warning = remainingSec <= 60;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: warning ? const Color(0xFF2C1318) : const Color(0xFF241520),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: warning ? const Color(0xFFE57373) : const Color(0xFF8E4B72),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (warning ? const Color(0xFFD32F2F) : const Color(0xFF8E4B72)).withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: warning ? const Color(0xFFD32F2F) : const Color(0xFF8E4B72),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.timer_outlined, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  warning ? 'SAFETY TIMER EXPIRING SOON' : 'ACTIVE SAFETY TIMER',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: warning ? const Color(0xFFFFCDD2) : Colors.white,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  timeStr,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Auto-alerts contacts if not checked in by ${timer.expiresAt.toLocal().hour.toString().padLeft(2, '0')}:${timer.expiresAt.toLocal().minute.toString().padLeft(2, '0')}.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFFE0E0E0)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final res = await SafetyTimerService().checkIn(timer.id);
+                    if (res['success'] == true) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✅ Checked in! You are marked safe.'),
+                            backgroundColor: Color(0xFF2E7D32),
+                          ),
+                        );
+                      }
+                      _refreshActiveSafetyTimer();
+                    }
+                  },
+                  icon: const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+                  label: const Text(
+                    'I\'m Safe (Check In)',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SafetyTimerScreen()),
+                  ).then((_) => _refreshActiveSafetyTimer());
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFFBBAFB5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                ),
+                child: const Text('View', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHomePage() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -896,6 +1044,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Active Emergency Banner (if active SOS incident present)
           if (_activeSosIncident != null)
             _buildActiveSosCard(_activeSosIncident!),
+
+          // Active Safety Timer Banner (if active timer present)
+          if (_activeSafetyTimer != null) ...[
+            const SizedBox(height: 12),
+            _buildActiveSafetyTimerCard(_activeSafetyTimer!),
+          ],
 
           const SizedBox(height: 28),
 

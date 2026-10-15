@@ -1206,8 +1206,7 @@ class _AlertData {
     required this.comments,
     required this.ratingTotal,
     required this.ratingCount,
-    this.myRating = 0,
-  });
+  }) : myRating = 0;
 }
 
 class _Comment {

@@ -39,7 +39,7 @@ function buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl }) {
  * @param {number|null} params.longitude - Initial longitude if available
  * @param {Date} params.activatedAt - Incident timestamp
  */
-async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, trackingUrl }) {
+async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, trackingUrl, customMessage }) {
   try {
     // 1. Fetch user's saved emergency contacts where auto_alert is enabled
     const contactsResult = await db.query(
@@ -60,8 +60,8 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, 
       return { status: 'NO_CONTACTS', sentCount: 0, pendingCount: 0, failedCount: 0, logs: [] };
     }
 
-    // 2. Format alert message content (includes tracking URL when available)
-    const messageBody = buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl });
+    // 2. Format alert message content (uses customMessage if provided, else standard SOS message)
+    const messageBody = customMessage || buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl });
 
     // 3. Provider Configuration Check
     const isGatewayConfigured = smsGateway.isGatewayConfigured();
