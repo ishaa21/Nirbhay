@@ -90,7 +90,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
     if (res['success'] == true) {
       final incident = res['incident'] as SosIncidentModel?;
       if (incident != null) {
-        LocationUpdateService().start(incident.id);
+        LocationUpdateService().start(sosId: incident.id);
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

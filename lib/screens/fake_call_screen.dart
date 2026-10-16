@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/sos_model.dart';
 import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
+import '../services/fake_call_audio_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CallerAvatarPreset
@@ -120,7 +121,9 @@ class FakeCallScreenState extends State<FakeCallScreen>
   late AnimationController pulseController;
   late Animation<double> pulseAnim;
 
-  // ── Vibration / Ringtone simulator ────────────────────────────────────────
+  // ── Audio & Vibration Ringtone Service ────────────────────────────────────
+  double ringtoneVolume = 0.8;
+  bool isPreviewPlaying = false;
   Timer? hapticRingerTimer;
 
   @override
@@ -145,29 +148,47 @@ class FakeCallScreenState extends State<FakeCallScreen>
     countdownTimer?.cancel();
     callDurationTimer?.cancel();
     hapticRingerTimer?.cancel();
+    FakeCallAudioService().stopRingtone();
     callerNameController.dispose();
     pulseController.dispose();
     super.dispose();
   }
 
-  // ── App Lifecycle (Requirement 4) ─────────────────────────────────────────
+  // ── App Lifecycle (Requirement 4 & Bug 4) ─────────────────────────────────
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && isArmed && scheduledFireTime != null) {
-      final now = DateTime.now();
-      if (now.isAfter(scheduledFireTime!)) {
-        // Time elapsed while app was paused or in background
-        _triggerIncomingCall();
-      } else {
-        // Recalculate remaining seconds accurately
-        setState(() {
-          countdownRemainingSeconds = scheduledFireTime!.difference(now).inSeconds;
-        });
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (showIncomingOverlay && !isCallConnected) {
+        FakeCallAudioService().pauseRingtone();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (showIncomingOverlay && !isCallConnected) {
+        FakeCallAudioService().resumeRingtone();
+      }
+      if (isArmed && scheduledFireTime != null) {
+        final now = DateTime.now();
+        if (now.isAfter(scheduledFireTime!)) {
+          // Time elapsed while app was paused or in background
+          _triggerIncomingCall();
+        } else {
+          // Recalculate remaining seconds accurately
+          setState(() {
+            countdownRemainingSeconds = scheduledFireTime!.difference(now).inSeconds;
+          });
+        }
       }
     }
   }
 
   // ── Action Handlers ───────────────────────────────────────────────────────
+  @visibleForTesting
+  void simulateArmedExpiry() {
+    setState(() {
+      isArmed = true;
+      scheduledFireTime = DateTime.now().subtract(const Duration(seconds: 2));
+    });
+  }
+
   void armFakeCall() {
     if (selectedDelaySeconds == 0) {
       // Immediate trigger
@@ -211,10 +232,12 @@ class FakeCallScreenState extends State<FakeCallScreen>
 
   void cancelScheduledCall() {
     countdownTimer?.cancel();
+    FakeCallAudioService().stopRingtone();
     setState(() {
       isArmed = false;
       scheduledFireTime = null;
       countdownRemainingSeconds = 0;
+      isPreviewPlaying = false;
     });
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -234,32 +257,16 @@ class FakeCallScreenState extends State<FakeCallScreen>
       showIncomingOverlay = true;
       isCallConnected = false;
       callDurationSeconds = 0;
+      isPreviewPlaying = false;
     });
 
-    // Start periodic haptic vibration to simulate ringtone
-    _startHapticRinger();
-  }
-
-  void _startHapticRinger() {
-    hapticRingerTimer?.cancel();
-    try {
-      HapticFeedback.heavyImpact();
-      SystemSound.play(SystemSoundType.alert);
-    } catch (_) {}
-
-    hapticRingerTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
-      if (!mounted || !showIncomingOverlay || isCallConnected) {
-        hapticRingerTimer?.cancel();
-        return;
-      }
-      try {
-        HapticFeedback.vibrate();
-        SystemSound.play(SystemSoundType.alert);
-      } catch (_) {}
-    });
+    // Start audible bundled telephone ringtone with configured volume and vibration
+    FakeCallAudioService().startRingtone(volume: ringtoneVolume);
   }
 
   void handleAcceptCall() {
+    // Stop ringing immediately upon answering the simulated call
+    FakeCallAudioService().stopRingtone();
     hapticRingerTimer?.cancel();
     HapticFeedback.mediumImpact();
     setState(() {
@@ -280,6 +287,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   void handleDeclineOrEndCall() {
+    // Stop ringing immediately upon declining or hanging up
+    FakeCallAudioService().stopRingtone();
     hapticRingerTimer?.cancel();
     callDurationTimer?.cancel();
     HapticFeedback.lightImpact();
@@ -287,6 +296,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
       showIncomingOverlay = false;
       isCallConnected = false;
       callDurationSeconds = 0;
+      isPreviewPlaying = false;
     });
   }
 
@@ -324,7 +334,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
     if (res['success'] == true) {
       final incident = res['incident'] as SosIncidentModel?;
       if (incident != null) {
-        LocationUpdateService().start(incident.id);
+        LocationUpdateService().start(sosId: incident.id);
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -366,6 +376,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   _buildCallerCustomizationCard(),
                   const SizedBox(height: 16),
                   _buildDelaySelector(),
+                  const SizedBox(height: 16),
+                  _buildRingtoneSettingsCard(),
                   const SizedBox(height: 16),
                   _buildAndroidRestrictionInfoCard(),
                   const SizedBox(height: 24),
@@ -621,6 +633,110 @@ class FakeCallScreenState extends State<FakeCallScreen>
                 ),
               );
             }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRingtoneSettingsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _outlineVariant.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('3. Ringtone & Audio', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+              TextButton.icon(
+                onPressed: isArmed
+                    ? null
+                    : () async {
+                        if (isPreviewPlaying) {
+                          await FakeCallAudioService().stopRingtone();
+                          if (mounted) setState(() => isPreviewPlaying = false);
+                        } else {
+                          if (mounted) setState(() => isPreviewPlaying = true);
+                          await FakeCallAudioService().startRingtone(volume: ringtoneVolume);
+                        }
+                      },
+                icon: Icon(
+                  isPreviewPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  size: 18,
+                  color: isArmed ? Colors.grey : _primary,
+                ),
+                label: Text(
+                  isPreviewPlaying ? 'Stop' : 'Preview',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isArmed ? Colors.grey : _primary,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: _primaryFixed.withOpacity(0.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Audible bundled telephone ringtone plays on the media/ringer channel when incoming call triggers.',
+            style: TextStyle(fontSize: 12, color: _onSurfaceVariant, height: 1.3),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                ringtoneVolume == 0
+                    ? Icons.volume_off_rounded
+                    : ringtoneVolume < 0.5
+                        ? Icons.volume_down_rounded
+                        : Icons.volume_up_rounded,
+                color: _primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: _primary,
+                    inactiveTrackColor: _outlineVariant,
+                    thumbColor: _primary,
+                    trackHeight: 4,
+                  ),
+                  child: Slider(
+                    value: ringtoneVolume,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 10,
+                    label: '${(ringtoneVolume * 100).round()}%',
+                    onChanged: isArmed
+                        ? null
+                        : (val) {
+                            setState(() => ringtoneVolume = val);
+                            FakeCallAudioService().setVolume(val);
+                          },
+                  ),
+                ),
+              ),
+              Text(
+                '${(ringtoneVolume * 100).round()}%',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _primary),
+              ),
+            ],
           ),
         ],
       ),

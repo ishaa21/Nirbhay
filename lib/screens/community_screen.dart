@@ -13,7 +13,6 @@ class _CommunityScreenState extends State<CommunityScreen>
   static const Color _primary = Color(0xFF301427);
   static const Color _surface = Color(0xFFFCF8F9);
   static const Color _cardBg = Color(0xFFFFFFFF);
-  static const Color _onSurface = Color(0xFF1B1B1C);
   static const Color _onSurfaceVariant = Color(0xFF4E4449);
   static const Color _primaryFixed = Color(0xFFFFD8ED);
   static const Color _secondaryContainer = Color(0xFFF2D9E4);

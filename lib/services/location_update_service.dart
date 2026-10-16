@@ -6,136 +6,355 @@ import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'auth_service.dart';
 
-/// Manages periodic GPS location uploads to the backend while an SOS is active.
-/// Call [start] when SOS activates and [stop] when it resolves/cancels.
+enum TrackingState {
+  idle,
+  starting,
+  tracking,
+  stale,
+  permissionDenied,
+  gpsDisabled,
+  networkError,
+  authExpired,
+  stopped,
+}
+
+class TrackingStatus {
+  final TrackingState state;
+  final Position? position;
+  final DateTime? lastSuccessfulUploadTime;
+  final String? message;
+
+  const TrackingStatus({
+    required this.state,
+    this.position,
+    this.lastSuccessfulUploadTime,
+    this.message,
+  });
+
+  bool get isStale {
+    if (lastSuccessfulUploadTime == null) return false;
+    return DateTime.now().difference(lastSuccessfulUploadTime!).inSeconds > 60;
+  }
+}
+
+/// Continuous GPS uploads for active SOS incidents and/or live journey sessions.
 class LocationUpdateService {
   static final LocationUpdateService _instance = LocationUpdateService._internal();
   factory LocationUpdateService() => _instance;
   LocationUpdateService._internal();
 
-  Timer? _timer;
+  Timer? _heartbeatTimer;
+  StreamSubscription<Position>? _positionStreamSub;
   String? _activeSosId;
+  String? _activeJourneyId;
   bool _isRunning = false;
 
-  /// How often to upload a fresh GPS fix (every 15 seconds)
-  static const Duration _uploadInterval = Duration(seconds: 15);
+  Position? _lastPosition;
+  DateTime? _lastSuccessfulUploadTime;
+  DateTime? _lastUploadAttemptTime;
+  TrackingState _state = TrackingState.idle;
+  String? _statusMessage;
+
+  final ValueNotifier<TrackingStatus> statusNotifier = ValueNotifier<TrackingStatus>(
+    const TrackingStatus(state: TrackingState.idle),
+  );
+
+  static const Duration _minUploadInterval = Duration(seconds: 10);
+  static const Duration _heartbeatInterval = Duration(seconds: 15);
 
   bool get isRunning => _isRunning;
   String? get activeSosId => _activeSosId;
+  String? get activeJourneyId => _activeJourneyId;
+  Position? get lastPosition => _lastPosition;
+  DateTime? get lastSuccessfulUploadTime => _lastSuccessfulUploadTime;
+  TrackingState get state => _state;
+  bool get isStale =>
+      _lastSuccessfulUploadTime != null &&
+      DateTime.now().difference(_lastSuccessfulUploadTime!).inSeconds > 60;
 
-  /// Start periodic location uploads for the given [sosId].
-  /// Immediately uploads the first fix, then every [_uploadInterval].
-  void start(String sosId) {
-    if (_isRunning && _activeSosId == sosId) {
-      debugPrint('[LocationUpdateService] Already tracking SOS $sosId — skipping duplicate start.');
+  void _notify(TrackingState newState, {String? msg, Position? pos}) {
+    _state = newState;
+    if (msg != null) _statusMessage = msg;
+    if (pos != null) _lastPosition = pos;
+
+    statusNotifier.value = TrackingStatus(
+      state: _state,
+      position: _lastPosition,
+      lastSuccessfulUploadTime: _lastSuccessfulUploadTime,
+      message: _statusMessage,
+    );
+  }
+
+  bool get _hasUploadTarget => _activeSosId != null || _activeJourneyId != null;
+
+  /// Start or update GPS uploads. Pass [sosId] and/or [journeyId].
+  Future<void> start({String? sosId, String? journeyId}) async {
+    if (sosId == null && journeyId == null) {
+      debugPrint('[LocationUpdateService] start() called with no SOS or journey id.');
       return;
     }
 
-    // Stop any previous tracking session first
-    stop();
+    final sameSession = _isRunning &&
+        _activeSosId == sosId &&
+        _activeJourneyId == journeyId;
+    if (sameSession) {
+      return;
+    }
+
+    final keepStream = _isRunning && _positionStreamSub != null;
+    if (!keepStream) {
+      _heartbeatTimer?.cancel();
+      _positionStreamSub?.cancel();
+      _isRunning = false;
+    }
 
     _activeSosId = sosId;
+    _activeJourneyId = journeyId;
     _isRunning = true;
-    debugPrint('[LocationUpdateService] Starting periodic location tracking for SOS $sosId.');
 
-    // Upload immediately, then on interval
-    _uploadLocation();
-    _timer = Timer.periodic(_uploadInterval, (_) => _uploadLocation());
-  }
+    _notify(
+      TrackingState.starting,
+      msg: 'Initializing GPS for ${sosId != null ? "SOS" : ""}${sosId != null && journeyId != null ? " + " : ""}${journeyId != null ? "journey" : ""}...',
+    );
 
-  /// Stop periodic location uploads.
-  void stop() {
-    _timer?.cancel();
-    _timer = null;
-    _isRunning = false;
-    final prevId = _activeSosId;
-    _activeSosId = null;
-    if (prevId != null) {
-      debugPrint('[LocationUpdateService] Stopped tracking for SOS $prevId.');
+    if (!keepStream) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _notify(TrackingState.gpsDisabled, msg: 'Device location (GPS) is disabled.');
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        _notify(TrackingState.permissionDenied, msg: 'Location permission was denied.');
+        return;
+      }
+
+      await _fetchAndUploadInitialFix();
+      _startLocationStream();
+
+      _heartbeatTimer?.cancel();
+      _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
+        if (!_isRunning || !_hasUploadTarget) {
+          _heartbeatTimer?.cancel();
+          return;
+        }
+        _performPeriodicFixAndUpload();
+      });
+    } else {
+      await _fetchAndUploadInitialFix();
     }
   }
 
-  Future<void> _uploadLocation() async {
-    if (!_isRunning || _activeSosId == null) return;
+  /// Backward-compatible: start SOS-only tracking.
+  Future<void> startSos(String sosId) => start(sosId: sosId);
 
-    final sosId = _activeSosId!;
+  void setActiveJourney(String? journeyId) {
+    _activeJourneyId = journeyId;
+    if (journeyId != null && !_isRunning) {
+      start(journeyId: journeyId, sosId: _activeSosId);
+    } else if (journeyId == null && _activeSosId == null && _isRunning) {
+      stop();
+    }
+  }
+
+  void _startLocationStream() {
+    _positionStreamSub?.cancel();
+
+    LocationSettings locationSettings;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      locationSettings = AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+        forceLocationManager: true,
+        intervalDuration: const Duration(seconds: 15),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'Nirbhay Live Tracking Active',
+          notificationText: 'Sharing your live location with guardians.',
+          enableWakeLock: true,
+        ),
+      );
+    } else {
+      locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      );
+    }
 
     try {
-      final position = await _getCurrentPosition();
-      if (position == null) {
-        debugPrint('[LocationUpdateService] Could not get GPS fix for SOS $sosId — skipping upload.');
-        return;
-      }
+      _positionStreamSub = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen(
+        (Position position) {
+          _lastPosition = position;
+          _uploadPositionIfEligible(position);
+        },
+        onError: (err) {
+          debugPrint('[LocationUpdateService] Position stream error: $err');
+          _notify(TrackingState.networkError, msg: 'GPS stream error: $err');
+        },
+      );
+    } catch (e) {
+      debugPrint('[LocationUpdateService] Failed to initialize position stream: $e');
+    }
+  }
 
+  Future<void> _fetchAndUploadInitialFix() async {
+    Position? pos;
+    try {
+      pos = await Geolocator.getLastKnownPosition();
+    } catch (_) {}
+
+    if (pos == null) {
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 6),
+          ),
+        );
+      } catch (_) {}
+    }
+
+    if (pos != null) {
+      _lastPosition = pos;
+      await _uploadPositionToBackend(pos);
+    }
+  }
+
+  Future<void> _performPeriodicFixAndUpload() async {
+    final now = DateTime.now();
+    if (_lastUploadAttemptTime != null &&
+        now.difference(_lastUploadAttemptTime!) < _minUploadInterval) {
+      return;
+    }
+
+    Position? pos = _lastPosition;
+    try {
+      pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 6),
+        ),
+      );
+    } catch (_) {}
+
+    if (pos != null) {
+      _lastPosition = pos;
+      await _uploadPositionToBackend(pos);
+    }
+  }
+
+  void _uploadPositionIfEligible(Position position) {
+    final now = DateTime.now();
+    if (_lastUploadAttemptTime != null &&
+        now.difference(_lastUploadAttemptTime!) < _minUploadInterval) {
+      return;
+    }
+    _uploadPositionToBackend(position);
+  }
+
+  Future<void> _uploadPositionToBackend(Position position) async {
+    if (!_isRunning || !_hasUploadTarget) return;
+
+    _lastUploadAttemptTime = DateTime.now();
+
+    try {
       final token = await AuthService().getToken();
       if (token == null || token.isEmpty) {
-        debugPrint('[LocationUpdateService] No auth token — cannot upload location.');
+        _notify(TrackingState.authExpired, msg: 'No auth token available.');
         return;
       }
 
-      final url = Uri.parse('${ApiConfig.baseUrl}/sos/$sosId/location');
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'accuracy': position.accuracy,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+      final body = jsonEncode({
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+        'speed': position.speed >= 0 ? position.speed : null,
+        'heading': position.heading >= 0 ? position.heading : null,
+      });
 
-      if (response.statusCode == 200) {
-        debugPrint(
-          '[LocationUpdateService] Uploaded location: '
-          '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)} '
-          '(±${position.accuracy.toStringAsFixed(0)}m) for SOS $sosId.',
+      bool anySuccess = false;
+      bool sosInactive = false;
+
+      if (_activeSosId != null) {
+        final sosId = _activeSosId!;
+        final url = Uri.parse('${ApiConfig.baseUrl}/sos/$sosId/location');
+        final response = await http
+            .post(url, headers: headers, body: body)
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          anySuccess = true;
+        } else if (response.statusCode == 400) {
+          sosInactive = true;
+          _activeSosId = null;
+        } else if (response.statusCode == 401) {
+          _notify(TrackingState.authExpired, msg: 'Session expired (HTTP 401).');
+          return;
+        }
+      }
+
+      if (_activeJourneyId != null) {
+        final journeyId = _activeJourneyId!;
+        final url = Uri.parse('${ApiConfig.baseUrl}/journey/$journeyId/location');
+        final response = await http
+            .post(url, headers: headers, body: body)
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          anySuccess = true;
+        } else if (response.statusCode == 400) {
+          _activeJourneyId = null;
+        } else if (response.statusCode == 401) {
+          _notify(TrackingState.authExpired, msg: 'Session expired (HTTP 401).');
+          return;
+        }
+      }
+
+      if (anySuccess) {
+        _lastSuccessfulUploadTime = DateTime.now();
+        _notify(
+          TrackingState.tracking,
+          pos: position,
+          msg: 'Location fix uploaded successfully.',
         );
-      } else if (response.statusCode == 400) {
-        // Incident is no longer ACTIVE — stop tracking
-        debugPrint('[LocationUpdateService] Backend rejected upload (incident inactive) — stopping tracker.');
+      } else if (sosInactive && _activeJourneyId == null) {
+        _notify(TrackingState.stopped, msg: 'Tracking session ended.');
         stop();
-      } else {
-        debugPrint('[LocationUpdateService] Upload failed (HTTP ${response.statusCode}): ${response.body}');
+      } else if (!_hasUploadTarget) {
+        stop();
       }
     } catch (e) {
+      _notify(TrackingState.networkError, msg: 'Network error uploading location: $e');
       debugPrint('[LocationUpdateService] Error uploading location: $e');
     }
   }
 
-  Future<Position?> _getCurrentPosition() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return null;
-
-      final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return null;
-      }
-
-      // Try last-known first (fast, no GPS warm-up needed)
-      Position? lastKnown;
-      try {
-        lastKnown = await Geolocator.getLastKnownPosition();
-      } catch (_) {}
-
-      // Try fresh position with 8 second timeout
-      try {
-        final fresh = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 8),
-          ),
-        );
-        return fresh;
-      } catch (_) {
-        return lastKnown;
-      }
-    } catch (e) {
-      debugPrint('[LocationUpdateService] _getCurrentPosition error: $e');
-      return null;
+  void stopJourneyTracking() {
+    _activeJourneyId = null;
+    if (_activeSosId == null) {
+      stop();
     }
+  }
+
+  void stop() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+
+    _positionStreamSub?.cancel();
+    _positionStreamSub = null;
+
+    _isRunning = false;
+    _activeSosId = null;
+    _activeJourneyId = null;
+
+    _notify(TrackingState.stopped, msg: 'Tracking stopped.');
   }
 }

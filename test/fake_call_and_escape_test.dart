@@ -210,12 +210,7 @@ void main() {
       await tester.pump();
 
       final state = tester.state<FakeCallScreenState>(find.byType(FakeCallScreen));
-
-      // Simulate an armed state with a fire time in the past (as if phone was locked or app paused)
-      state.setState(() {
-        state.isArmed = true;
-        state.scheduledFireTime = DateTime.now().subtract(const Duration(seconds: 2));
-      });
+      state.simulateArmedExpiry();
 
       // Notify lifecycle state change to resumed
       state.didChangeAppLifecycleState(AppLifecycleState.resumed);

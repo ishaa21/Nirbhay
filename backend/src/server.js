@@ -7,6 +7,7 @@ const userRoutes = require('./routes/userRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const sosRoutes = require('./routes/sosRoutes');
 const timerRoutes = require('./routes/timerRoutes');
+const journeyRoutes = require('./routes/journeyRoutes');
 const { processExpiredTimers } = require('./controllers/timerController');
 
 const path = require('path');
@@ -19,7 +20,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve mobile-friendly live emergency tracking web application
-app.get('/track/:token', (req, res) => {
+app.get(['/track/:token', '/track/:token/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'tracking.html'));
 });
 
@@ -29,6 +30,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/sos', sosRoutes);
 app.use('/api/timer', timerRoutes);
+app.use('/api/journey', journeyRoutes);
 
 
 // Health Check Endpoint

@@ -51,6 +51,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   int _selectedMinutes = 30;
   int _timeLeftSeconds = 30 * 60;
   Timer? _countdownTimer;
+  // Custom timer input handling
+  bool _customMode = false;
+  final TextEditingController _customController = TextEditingController();
   bool _preExpiryAlertFired = false;
 
   // ── Pulse animation ───────────────────────────────────────────────────────
@@ -78,6 +81,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   void dispose() {
     _countdownTimer?.cancel();
     _pulseController.dispose();
+    _customController.dispose();
     super.dispose();
   }
 
@@ -177,6 +181,14 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   }
 
   Future<void> _handleStart() async {
+    // Ensure custom minutes are applied if set
+    if (_customMode && _customController.text.isNotEmpty) {
+      final customVal = int.tryParse(_customController.text.trim());
+      if (customVal != null && customVal > 0) {
+        _selectedMinutes = customVal;
+        _customMode = false;
+      }
+    }
     if (_processing) return;
     setState(() => _processing = true);
 
@@ -495,6 +507,43 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                     const SizedBox(height: 28),
                     if (!_isRunning) ...[
                       _buildDurationSelector(),
+                      const SizedBox(height: 12),
+                      // Custom duration chip
+                      GestureDetector(
+                        onTap: _showCustomTimerDialog,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                ? _primary.withOpacity(0.09)
+                                : _cardBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                  ? _primary
+                                  : _outlineVariant,
+                              width: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60) ? 2 : 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                  ? '$_selectedMinutes\nMIN'
+                                  : 'Custom',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                    ? _primary
+                                    : _onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 20),
                       _buildStartButton(),
                     ] else ...[
@@ -809,6 +858,39 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
           shadowColor: _primary.withOpacity(0.35),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
+      ),
+    );
+  }
+
+  void _showCustomTimerDialog() async {
+    final controller = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Custom Timer'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            hintText: 'Enter minutes (e.g., 45)',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final val = int.tryParse(controller.text.trim());
+              if (val != null && val > 0) {
+                setState(() {
+                  _selectedMinutes = val;
+                  _customMode = false;
+                });
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text('Set'),
+          ),
+        ],
       ),
     );
   }

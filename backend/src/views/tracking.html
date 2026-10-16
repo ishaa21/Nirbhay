@@ -352,9 +352,9 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
   <script>
-    // Extract tracking token from URL pathname: /track/{token}
-    const pathParts = window.location.pathname.split('/');
-    const token = pathParts[pathParts.length - 1] || '';
+    // Extract tracking token from URL pathname: /track/{token} (safe against trailing slashes)
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const token = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '';
 
     let map = null;
     let marker = null;
@@ -399,6 +399,10 @@
         weight: 3,
         dashArray: '4, 8'
       }).addTo(map);
+
+      setTimeout(() => {
+        if (map) map.invalidateSize();
+      }, 200);
     }
 
     function updateMapLocation(lat, lng, accuracy) {
@@ -429,6 +433,15 @@
       return updated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    async function fetchTrackingJson(url) {
+      const response = await fetch(url);
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_) {}
+      return { response, data };
+    }
+
     async function fetchTrackingStatus() {
       if (!token) {
         showError('Invalid Link', 'No tracking token provided in URL.');
@@ -436,8 +449,12 @@
       }
 
       try {
-        const response = await fetch(`/api/sos/track/${encodeURIComponent(token)}`);
-        const data = await response.json();
+        let { response, data } = await fetchTrackingJson(`/api/sos/track/${encodeURIComponent(token)}`);
+        if (response.status === 404) {
+          const journeyTry = await fetchTrackingJson(`/api/journey/track/${encodeURIComponent(token)}`);
+          response = journeyTry.response;
+          data = journeyTry.data;
+        }
 
         if (!response.ok) {
           showError('Link Expired or Inactive', data.message || 'Tracking is no longer active.');
@@ -445,8 +462,9 @@
           return;
         }
 
-        // Case 1: Incident is RESOLVED or CANCELLED
-        if (data.status === 'RESOLVED' || data.status === 'CANCELLED') {
+        // Case 1: SOS resolved/cancelled or journey completed/cancelled
+        if (data.status === 'RESOLVED' || data.status === 'CANCELLED' ||
+            data.status === 'COMPLETED') {
           handleResolvedState(data);
           if (pollInterval) clearInterval(pollInterval);
           return;
@@ -460,13 +478,25 @@
           latestLng = lng;
 
           document.getElementById('user-display-name').textContent = `${data.userName}'s Live Location`;
-          document.getElementById('last-update-text').textContent = formatRelativeTime(data.lastUpdatedAt || data.activatedAt);
+
+          // Stale tracking detection (>60 seconds)
+          const lastUpdateTs = new Date(data.lastUpdatedAt || data.activatedAt).getTime();
+          const isStale = (Date.now() - lastUpdateTs) > 60000;
+          const timeFormatted = formatRelativeTime(data.lastUpdatedAt || data.activatedAt);
+
+          if (isStale) {
+            document.getElementById('last-update-text').innerHTML = `<span style="color:#ffb74d;">⚠️ Stale GPS (${timeFormatted}) — poor signal or phone paused</span>`;
+          } else {
+            document.getElementById('last-update-text').textContent = timeFormatted;
+          }
+
           document.getElementById('coords-text').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
           // Update navigation links
           document.getElementById('btn-google-maps').href = `https://maps.google.com/?q=${lat},${lng}`;
 
-          updateMapLocation(lat, lng, 35);
+          updateMapLocation(lat, lng, data.accuracy || 25);
+          if (map) map.invalidateSize();
         } else {
           document.getElementById('last-update-text').textContent = 'Waiting for GPS fix from user phone...';
         }
@@ -478,12 +508,28 @@
     function handleResolvedState(data) {
       document.getElementById('status-badge').className = 'status-badge status-resolved';
       document.getElementById('status-text').textContent = 'RESOLVED';
-      document.querySelector('.pulse-dot').style.animation = 'none';
+      const pulseDot = document.querySelector('.pulse-dot');
+      if (pulseDot) pulseDot.style.animation = 'none';
 
       document.getElementById('resolved-banner').style.display = 'block';
-      if (data.resolvedAt) {
-        const timeStr = new Date(data.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('resolved-time-text').textContent = `The emergency alert was safely resolved at ${timeStr}. The user is safe.`;
+      if (data.resolvedAt || data.endedAt) {
+        const timeStr = new Date(data.resolvedAt || data.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isJourney = data.status === 'COMPLETED' || data.status === 'CANCELLED';
+        document.getElementById('resolved-time-text').textContent = isJourney
+          ? `The live journey ended at ${timeStr}. The user is safe.`
+          : `The emergency alert was safely resolved at ${timeStr}. The user is safe.`;
+      }
+
+      // If last known coordinates exist, show on map as static pin
+      if (data.latitude && data.longitude) {
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        updateMapLocation(lat, lng, 0);
+        if (map) {
+          map.setView([lat, lng], 16);
+          map.invalidateSize();
+        }
+        document.getElementById('btn-google-maps').href = `https://maps.google.com/?q=${lat},${lng}`;
       }
 
       // Hide live coordinates for privacy once incident is resolved

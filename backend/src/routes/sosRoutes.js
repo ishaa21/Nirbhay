@@ -19,7 +19,7 @@ const { uploadLocation, getTrackingData } = require('../controllers/trackingCont
 router.post('/webhook/sms-gateway', handleGatewayWebhook);
 
 // 2. Public live tracking data endpoint — no JWT needed (opened by guardians via SMS link)
-router.get('/track/:token', getTrackingData);
+router.get(['/track/:token', '/track/:token/'], getTrackingData);
 
 // 2. All subsequent user SOS routes require JWT Authentication
 router.use(authenticateToken);

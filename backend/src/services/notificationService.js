@@ -28,6 +28,144 @@ function buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl }) {
   return `EMERGENCY ALERT: Nirbhay SOS activated at ${timeStr}. ${locationStr}.${trackingStr} Please check immediately.`;
 }
 
+function buildJourneyStartedMessage({ userName, trackingUrl, destination, startedAt }) {
+  const timeStr = new Date(startedAt || Date.now()).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  });
+  const name = userName ? userName.trim() : 'User';
+  const destPart = destination ? ` Heading to: ${destination}.` : '';
+  const trackPart = trackingUrl ? ` Live Journey: ${trackingUrl}` : '';
+  return `JOURNEY ALERT: ${name} started a live journey on Nirbhay at ${timeStr}.${destPart}${trackPart} You can follow their location on the link.`;
+}
+
+function buildJourneyEndedMessage({ userName, resolvedAt }) {
+  const timeStr = new Date(resolvedAt || Date.now()).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  });
+  const name = userName ? userName.trim() : 'The user';
+  return `JOURNEY UPDATE: ${name} has arrived safely and ended their Nirbhay live journey at ${timeStr}. No further action needed.`;
+}
+
+function buildJourneyDeviationMessage({ userName, latitude, longitude, trackingUrl, distanceMeters }) {
+  const name = userName ? userName.trim() : 'User';
+  let locationStr = 'Location: Unavailable';
+  if (latitude != null && longitude != null) {
+    const latNum = parseFloat(latitude);
+    const lngNum = parseFloat(longitude);
+    if (!isNaN(latNum) && !isNaN(lngNum)) {
+      locationStr = `Location: https://maps.google.com/?q=${latNum},${lngNum}`;
+    }
+  }
+  const distPart = distanceMeters != null ? ` Route drift ~${Math.round(distanceMeters)}m.` : '';
+  const trackPart = trackingUrl ? ` Live Journey: ${trackingUrl}` : '';
+  return `ROUTE ALERT: ${name} may have deviated from their planned route on Nirbhay.${distPart} ${locationStr}.${trackPart} Please check on them.`;
+}
+
+/**
+ * Send SMS to all emergency contacts with auto_alert enabled (no SOS incident record required).
+ */
+async function sendAlertsToUserContacts({ userId, messageBody }) {
+  const contactsResult = await db.query(
+    `SELECT id, name, phone, auto_alert 
+     FROM emergency_contacts 
+     WHERE user_id = $1 AND auto_alert = true`,
+    [userId]
+  );
+  const contacts = contactsResult.rows;
+
+  if (contacts.length === 0) {
+    console.log(`[CONTACT SMS] No auto_alert contacts for user ${userId}.`);
+    return { status: 'NO_CONTACTS', sentCount: 0, pendingCount: 0, failedCount: 0, isProviderConfigured: false };
+  }
+
+  const isGatewayConfigured = smsGateway.isGatewayConfigured();
+  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioFromNumber = process.env.TWILIO_PHONE_NUMBER;
+  const isTwilioConfigured = !!(twilioAccountSid && twilioAuthToken && twilioFromNumber);
+  const isProviderConfigured = isGatewayConfigured || isTwilioConfigured;
+
+  const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
+  const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
+
+  let sentCount = 0;
+  let pendingCount = 0;
+  let failedCount = 0;
+  let testSmsDispatched = false;
+
+  for (const contact of contacts) {
+    let targetPhone = contact.phone;
+    if (isTestMode) {
+      if (!testPhoneNumber) {
+        failedCount++;
+        continue;
+      }
+      if (testSmsDispatched) {
+        pendingCount++;
+        continue;
+      }
+      targetPhone = testPhoneNumber;
+    }
+
+    if (!isProviderConfigured) {
+      failedCount++;
+      continue;
+    }
+
+    if (isGatewayConfigured) {
+      try {
+        const gatewayResult = await smsGateway.sendSms({ to: targetPhone, message: messageBody });
+        if (isTestMode) testSmsDispatched = true;
+        if (gatewayResult.success) {
+          const mappedStatus = gatewayResult.state?.toUpperCase() === 'SENT' ? 'SENT' : 'PENDING';
+          if (mappedStatus === 'SENT') sentCount++;
+          else pendingCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (_) {
+        failedCount++;
+      }
+    } else if (isTwilioConfigured) {
+      try {
+        const authString = Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64');
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+        const params = new URLSearchParams();
+        params.append('To', targetPhone);
+        params.append('From', twilioFromNumber);
+        params.append('Body', messageBody);
+        const response = await fetch(twilioUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${authString}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+          signal: AbortSignal.timeout(10000),
+        });
+        const resData = await response.json();
+        if (response.ok && resData.sid) sentCount++;
+        else failedCount++;
+      } catch (_) {
+        failedCount++;
+      }
+    }
+  }
+
+  let finalStatus = 'SENT';
+  const totalSuccess = sentCount + pendingCount;
+  if (totalSuccess === 0 && failedCount > 0) finalStatus = 'FAILED';
+  else if (totalSuccess > 0 && failedCount > 0) finalStatus = 'PARTIAL';
+  else if (pendingCount > 0 && sentCount === 0) finalStatus = 'PENDING';
+  else if (!isProviderConfigured) finalStatus = 'NOT_CONFIGURED';
+
+  return { status: finalStatus, isProviderConfigured, isTestMode, sentCount, pendingCount, failedCount };
+}
+
 /**
  * Send SOS Emergency Notifications to user's configured emergency contacts
  * using the Android SMS Gateway (https://sms-gate.app/)
@@ -77,13 +215,15 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, 
     const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
 
     if (isTestMode) {
-      console.log(`[SOS TEST MODE] Safe Test Mode is ACTIVE. Real contacts will NOT be alerted. Target: ${testPhoneNumber || 'NOT_SET'}`);
+      console.log(`[SOS TEST MODE] Safe Test Mode is ACTIVE. Real contacts will NOT be alerted. Target: ${smsGateway.maskPhone(testPhoneNumber)}`);
     }
 
     let sentCount = 0;
     let pendingCount = 0;
     let failedCount = 0;
     const notificationLogs = [];
+    let testSmsDispatched = false;
+    let testSmsResult = null;
 
     for (const contact of contacts) {
       // Determine destination phone number (safely diverted if test mode is active)
@@ -102,13 +242,29 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, 
           failedCount++;
           continue;
         }
+
+        // In test mode, only send 1 physical SMS to testPhoneNumber for this incident to avoid spamming the test number
+        if (testSmsDispatched) {
+          console.log(`[SOS TEST MODE] Safe simulation for contact ${contact.name} (${smsGateway.maskPhone(contact.phone)}). Test SMS already dispatched to ${smsGateway.maskPhone(testPhoneNumber)}.`);
+          const simulatedStatus = testSmsResult && testSmsResult.success ? 'PENDING' : 'FAILED';
+          const insertRes = await db.query(
+            `INSERT INTO sos_notifications (sos_id, contact_id, contact_name, contact_phone, channel, status, provider_message_id)
+             VALUES ($1, $2, $3, $4, 'SMS', $5, $6)
+             RETURNING *`,
+            [sosId, contact.id, contact.name, contact.phone, simulatedStatus, `TEST_SIMULATED_${testSmsResult ? testSmsResult.messageId : 'NONE'}`]
+          );
+          notificationLogs.push(insertRes.rows[0]);
+          if (simulatedStatus === 'PENDING') pendingCount++; else failedCount++;
+          continue;
+        }
+
         targetPhone = testPhoneNumber;
       }
 
       if (!isProviderConfigured) {
         // Neither Gateway nor Twilio configured — record NOT_CONFIGURED state
         const errorMsg = 'SMS Gateway credentials (SMS_GATEWAY_LOGIN / SMS_GATEWAY_PASSWORD) are not set in environment.';
-        console.log(`[SOS NOTIFICATION] Contact: ${contact.name} (${contact.phone}) | Status: NOT_CONFIGURED | ${errorMsg}`);
+        console.log(`[SOS NOTIFICATION] Contact: ${contact.name} (${smsGateway.maskPhone(contact.phone)}) | Status: NOT_CONFIGURED`);
 
         const insertRes = await db.query(
           `INSERT INTO sos_notifications (sos_id, contact_id, contact_name, contact_phone, channel, status, error_message)
@@ -126,11 +282,16 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, 
             message: messageBody,
           });
 
+          if (isTestMode) {
+            testSmsDispatched = true;
+            testSmsResult = gatewayResult;
+          }
+
           if (gatewayResult.success) {
             // Note: An accepted request in sms-gate.app enters state 'Pending' on the gateway server
             // until the Android device picks it up. As required: do not falsely claim delivery!
             const mappedStatus = gatewayResult.state?.toUpperCase() === 'SENT' ? 'SENT' : 'PENDING';
-            console.log(`[SOS NOTIFICATION] SMS enqueued to ${contact.name} (${targetPhone}). Gateway ID: ${gatewayResult.messageId}, State: ${mappedStatus}`);
+            console.log(`[SOS NOTIFICATION] SMS enqueued to ${contact.name} (${smsGateway.maskPhone(targetPhone)}). Gateway ID: ${gatewayResult.messageId}, State: ${mappedStatus}`);
 
             const insertRes = await db.query(
               `INSERT INTO sos_notifications (sos_id, contact_id, contact_name, contact_phone, channel, status, provider_message_id)
@@ -364,6 +525,10 @@ async function sendSosResolvedAlerts({ sosId, userId, resolvedAt }) {
 module.exports = {
   buildAlertMessage,
   buildResolvedMessage,
+  buildJourneyStartedMessage,
+  buildJourneyEndedMessage,
+  buildJourneyDeviationMessage,
+  sendAlertsToUserContacts,
   sendSosAlerts,
   sendSosResolvedAlerts,
 };

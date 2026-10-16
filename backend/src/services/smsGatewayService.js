@@ -152,16 +152,29 @@ async function checkGatewayDeviceRegistration() {
 }
 
 /**
+ * Determine if a gateway failure is transient (eligible for retry) or permanent.
+ */
+function isTransientFailure(category, httpStatus) {
+  if (category === 'RATE_LIMIT_EXCEEDED' || httpStatus === 429) return true;
+  if (category === 'GATEWAY_SERVER_ERROR' || (httpStatus >= 500 && httpStatus <= 504)) return true;
+  if (category === 'TIMEOUT_ERROR') return true;
+  if (category === 'NETWORK_ERROR') return true;
+  return false;
+}
+
+/**
  * Send an SMS message via the official Android SMS Gateway REST API (https://sms-gate.app/)
+ * Includes bounded exponential backoff retries for transient errors (rate limit 429, timeouts, 5xx server errors).
  * 
  * @param {Object} options
  * @param {string} options.to - Recipient phone number (E.164 format)
  * @param {string} options.message - Text message content
  * @param {string} [options.deviceId] - Optional target device ID
  * @param {number} [options.simNumber] - Optional SIM slot index (1 or 2)
+ * @param {number} [options.maxRetries=2] - Maximum retry attempts for transient errors
  * @returns {Promise<{success: boolean, messageId?: string, state?: string, error?: string, errorCategory?: string, raw?: any}>}
  */
-async function sendSms({ to, message, deviceId, simNumber }) {
+async function sendSms({ to, message, deviceId, simNumber, maxRetries = 2 }) {
   const login = process.env.SMS_GATEWAY_LOGIN || process.env.SMS_GATEWAY_USERNAME;
   const password = process.env.SMS_GATEWAY_PASSWORD;
 
@@ -206,79 +219,139 @@ async function sendSms({ to, message, deviceId, simNumber }) {
   }
 
   const basicAuth = Buffer.from(`${login}:${password}`).toString('base64');
+  let attempt = 0;
+  let lastResult = null;
 
-  try {
-    // 10-second request timeout using AbortSignal to avoid hanging requests
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${basicAuth}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000),
-    });
-
-    const resText = await response.text();
-    let resData;
+  while (attempt <= maxRetries) {
     try {
-      resData = JSON.parse(resText);
-    } catch (_) {
-      resData = { raw: resText };
-    }
+      // 10-second request timeout using AbortSignal to avoid hanging requests
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    if (response.ok) {
-      // Successful response returns { id: "...", state: "Pending" | "Sent" | "Delivered", recipients: [...] }
-      const messageId = resData.id || (resData.recipients && resData.recipients[0] && resData.recipients[0].id) || 'GATEWAY_ACCEPTED';
-      const state = resData.state || 'Pending';
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (_) {
+        resData = { raw: resText };
+      }
 
-      console.log(`[SMS_GATEWAY_ACCEPTED] Enqueued SMS to ${maskPhone(normalizedTo)}. Gateway Msg ID: ${messageId}, Initial State: ${state}`);
+      if (response.ok) {
+        // Successful response returns { id: "...", state: "Pending" | "Sent" | "Delivered", recipients: [...] }
+        const messageId = resData.id || (resData.recipients && resData.recipients[0] && resData.recipients[0].id) || 'GATEWAY_ACCEPTED';
+        const state = resData.state || 'Pending';
 
-      return {
-        success: true,
-        messageId,
-        state,
-        recipientMasked: maskPhone(normalizedTo),
-        raw: resData,
-      };
-    } else if (response.status === 401 || response.status === 403) {
-      console.error(`[SMS_GATEWAY_AUTH_FAILURE] Authentication failed with HTTP ${response.status}. Check SMS_GATEWAY_LOGIN / SMS_GATEWAY_PASSWORD.`);
-      return {
+        console.log(`[SMS_GATEWAY_ACCEPTED] Enqueued SMS to ${maskPhone(normalizedTo)}. Gateway Msg ID: ${messageId}, Initial State: ${state}`);
+        console.log(`[SMS_GATEWAY_NOTE] Gateway acceptance indicates message is enqueued on gateway server. Recipient delivery is confirmed via webhook.`);
+
+        return {
+          success: true,
+          messageId,
+          state,
+          recipientMasked: maskPhone(normalizedTo),
+          attempts: attempt + 1,
+          raw: resData,
+        };
+      } else if (response.status === 401 || response.status === 403) {
+        // Permanent error: Bad credentials
+        console.error(`[SMS_GATEWAY_AUTH_FAILURE] Authentication failed with HTTP ${response.status}. Permanent error — will NOT retry.`);
+        return {
+          success: false,
+          state: 'FAILED',
+          errorCategory: 'AUTHENTICATION_FAILURE',
+          error: `Gateway authentication rejected (HTTP ${response.status}). Check credentials.`,
+          raw: resData,
+        };
+      } else if (response.status === 400 || response.status === 422) {
+        // Permanent error: Invalid payload
+        const errorMsg = resData.message || resData.error || `Bad request (HTTP ${response.status})`;
+        console.error(`[SMS_GATEWAY_REJECTED] Bad request to gateway: ${errorMsg}. Permanent error — will NOT retry.`);
+        return {
+          success: false,
+          state: 'FAILED',
+          errorCategory: 'BAD_REQUEST',
+          error: errorMsg,
+          raw: resData,
+        };
+      } else if (response.status === 429) {
+        // Transient error: Rate limit
+        const errorMsg = 'Rate limit exceeded on SMS Gateway (HTTP 429).';
+        console.warn(`[SMS_GATEWAY_RATE_LIMIT] ${errorMsg}`);
+        lastResult = {
+          success: false,
+          state: 'FAILED',
+          errorCategory: 'RATE_LIMIT_EXCEEDED',
+          error: errorMsg,
+          raw: resData,
+        };
+      } else if (response.status >= 500 && response.status <= 504) {
+        // Transient error: Gateway server error
+        const errorMsg = resData.message || `Gateway server error (HTTP ${response.status})`;
+        console.warn(`[SMS_GATEWAY_SERVER_ERROR] HTTP ${response.status}: ${errorMsg}`);
+        lastResult = {
+          success: false,
+          state: 'FAILED',
+          errorCategory: 'GATEWAY_SERVER_ERROR',
+          error: errorMsg,
+          raw: resData,
+        };
+      } else {
+        // Other unexpected gateway error
+        const errorMsg = resData.message || resData.error || `Gateway error (HTTP ${response.status})`;
+        console.error(`[SMS_GATEWAY_REJECTED] Gateway returned HTTP ${response.status}: ${errorMsg}`);
+        return {
+          success: false,
+          state: 'FAILED',
+          errorCategory: 'REJECTED_BY_GATEWAY',
+          error: errorMsg,
+          raw: resData,
+        };
+      }
+    } catch (error) {
+      let errorCategory = 'NETWORK_ERROR';
+      let errorMsg = error.message;
+
+      if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+        errorCategory = 'TIMEOUT_ERROR';
+        errorMsg = 'Request timed out (10s) while connecting to SMS Gateway.';
+      }
+
+      console.warn(`[SMS_GATEWAY_TRANSIENT_ERROR] ${errorCategory}: ${errorMsg}`);
+      lastResult = {
         success: false,
         state: 'FAILED',
-        errorCategory: 'AUTHENTICATION_FAILURE',
-        error: `Gateway authentication rejected (HTTP ${response.status}). Check credentials.`,
-        raw: resData,
-      };
-    } else {
-      const errorMsg = resData.message || resData.error || resData.detail || `Gateway error with HTTP status ${response.status}`;
-      console.error(`[SMS_GATEWAY_REJECTED] Gateway rejected dispatch (HTTP ${response.status}): ${errorMsg}`);
-      return {
-        success: false,
-        state: 'FAILED',
-        errorCategory: 'REJECTED_BY_GATEWAY',
+        errorCategory,
         error: errorMsg,
-        raw: resData,
       };
     }
-  } catch (error) {
-    let errorCategory = 'NETWORK_ERROR';
-    let errorMsg = error.message;
 
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-      errorCategory = 'TIMEOUT_ERROR';
-      errorMsg = 'Request timed out (10s) while connecting to the SMS Gateway server.';
+    // Check if eligible for bounded exponential retry
+    if (attempt < maxRetries && lastResult && isTransientFailure(lastResult.errorCategory)) {
+      attempt++;
+      const backoffDelay = attempt === 1 ? 1000 : 2500;
+      console.log(`[SMS_GATEWAY_RETRY] Retrying dispatch to ${maskPhone(normalizedTo)} in ${backoffDelay}ms (attempt ${attempt + 1}/${maxRetries + 1})...`);
+      await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+    } else {
+      break;
     }
-
-    console.error(`[SMS_GATEWAY_NETWORK_ERROR] ${errorCategory}: ${errorMsg}`);
-    return {
-      success: false,
-      state: 'FAILED',
-      errorCategory,
-      error: errorMsg,
-    };
   }
+
+  // If retries exhausted
+  console.error(`[SMS_GATEWAY_FAILED] Dispatch exhausted all attempts for ${maskPhone(normalizedTo)}. Category: ${lastResult?.errorCategory}`);
+  return lastResult || {
+    success: false,
+    state: 'FAILED',
+    errorCategory: 'UNKNOWN_FAILURE',
+    error: 'Failed to dispatch SMS after bounded retries.',
+  };
 }
 
 /**
@@ -470,5 +543,6 @@ module.exports = {
   verifyWebhookSignature,
   processWebhookEvent,
   recalculateIncidentNotificationStatus,
+  isTransientFailure,
 };
 

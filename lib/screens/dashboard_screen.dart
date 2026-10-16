@@ -91,7 +91,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Resume location tracking if we have an active incident on app reopen
           final incident = res['incident'] as SosIncidentModel?;
           if (incident != null) {
-            LocationUpdateService().start(incident.id);
+            LocationUpdateService().start(sosId: incident.id);
           }
         } else {
           _activeSosIncident = null;
@@ -104,8 +104,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _sosAnimController.dispose();
-    // Stop location tracking when leaving dashboard (app goes to background)
-    LocationUpdateService().stop();
+    // Do NOT stop LocationUpdateService here — active SOS tracking must persist
+    // across dashboard navigation and screen transitions until resolved/cancelled.
     super.dispose();
   }
 
@@ -113,7 +113,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   static const Color _bg = Color(0xFFF7F3F5);
   static const Color _cardBg = Colors.white;
   static const Color _sosDark = Color(0xFF2A1020);
-  static const Color _accent = Color(0xFF301427);
   static const Color _textPrimary = Color(0xFF1B1B1C);
   static const Color _textSecondary = Color(0xFF6B6570);
   static const Color _navActiveBg = Color(0xFF2A1020);
@@ -348,7 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final incident = res['incident'] as SosIncidentModel;
       setState(() => _activeSosIncident = incident);
       // Start periodic location uploads for this new SOS incident
-      LocationUpdateService().start(incident.id);
+      LocationUpdateService().start(sosId: incident.id);
       _showSosSuccessModal(incident, res['notifications']);
     } else if (res['alreadyActive'] == true) {
       final incident = res['incident'] as SosIncidentModel?;
