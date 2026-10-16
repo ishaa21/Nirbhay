@@ -11,6 +11,7 @@ const {
   getGatewayStatus,
   getMessageDetails,
   handleGatewayWebhook,
+  reportDeviceSmsResults,
 } = require('../controllers/sosController');
 const { uploadLocation, getTrackingData } = require('../controllers/trackingController');
 
@@ -50,5 +51,8 @@ router.patch('/:id/cancel', cancelSos);
 
 // Upload real-time GPS location for an active SOS incident (called by Flutter app periodically)
 router.post('/:id/location', uploadLocation);
+
+// Report direct Android SMS results (DEVICE dispatch mode)
+router.post('/:id/device-sms/results', reportDeviceSmsResults);
 
 module.exports = router;

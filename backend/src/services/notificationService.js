@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const smsGateway = require('./smsGatewayService');
+const { isDeviceSmsMode } = require('./smsDispatchMode');
+const { prepareDeviceSosAlerts } = require('./deviceSmsDispatch');
 
 /**
  * Format SMS alert body with timestamp, Google Maps location link, and live tracking URL
@@ -80,6 +82,20 @@ async function sendAlertsToUserContacts({ userId, messageBody }) {
   if (contacts.length === 0) {
     console.log(`[CONTACT SMS] No auto_alert contacts for user ${userId}.`);
     return { status: 'NO_CONTACTS', sentCount: 0, pendingCount: 0, failedCount: 0, isProviderConfigured: false };
+  }
+
+  if (isDeviceSmsMode()) {
+    console.log(
+      `[CONTACT SMS] SMS_DISPATCH_MODE=DEVICE — journey/contact alerts must be sent from the user's Android device (not via Render). Skipping gateway.`
+    );
+    return {
+      status: 'DEVICE_REQUIRED',
+      sentCount: 0,
+      pendingCount: 0,
+      failedCount: 0,
+      isProviderConfigured: false,
+      dispatchMode: 'DEVICE',
+    };
   }
 
   const isGatewayConfigured = smsGateway.isGatewayConfigured();
@@ -201,7 +217,29 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, 
     // 2. Format alert message content (uses customMessage if provided, else standard SOS message)
     const messageBody = customMessage || buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl });
 
-    // 3. Provider Configuration Check
+    const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
+    const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
+
+    if (isDeviceSmsMode()) {
+      console.log(
+        `[SOS Notification] DEVICE dispatch mode — creating PENDING notification rows; Android app will send via SIM.`
+      );
+      if (isTestMode) {
+        console.log(
+          `[SOS TEST MODE] Active. Real contacts will NOT receive SMS. Test target: ${smsGateway.maskPhone(testPhoneNumber)}`
+        );
+      }
+      return prepareDeviceSosAlerts({
+        db,
+        sosId,
+        contacts,
+        messageBody,
+        isTestMode,
+        testPhoneNumber,
+      });
+    }
+
+    // 3. Provider Configuration Check (GATEWAY / Twilio legacy path)
     const isGatewayConfigured = smsGateway.isGatewayConfigured();
     const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
     const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
@@ -209,10 +247,6 @@ async function sendSosAlerts({ sosId, userId, latitude, longitude, activatedAt, 
     const isTwilioConfigured = !!(twilioAccountSid && twilioAuthToken && twilioFromNumber);
 
     const isProviderConfigured = isGatewayConfigured || isTwilioConfigured;
-
-    // Safe Test Mode configuration
-    const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
-    const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
 
     if (isTestMode) {
       console.log(`[SOS TEST MODE] Safe Test Mode is ACTIVE. Real contacts will NOT be alerted. Target: ${smsGateway.maskPhone(testPhoneNumber)}`);
@@ -463,9 +497,29 @@ async function sendSosResolvedAlerts({ sosId, userId, resolvedAt }) {
     }
 
     const messageBody = buildResolvedMessage({ resolvedAt, userName });
-    const isGatewayConfigured = smsGateway.isGatewayConfigured();
     const isTestMode = process.env.SMS_TEST_MODE === 'true' || process.env.SMS_TEST_MODE === '1';
     const testPhoneNumber = process.env.SMS_TEST_PHONE_NUMBER;
+
+    if (isDeviceSmsMode()) {
+      const prep = await prepareDeviceSosAlerts({
+        db,
+        sosId,
+        contacts,
+        messageBody,
+        isTestMode,
+        testPhoneNumber,
+      });
+      return {
+        success: true,
+        dispatchMode: 'DEVICE',
+        deviceSms: prep.deviceSms,
+        sentCount: 0,
+        pendingCount: prep.pendingCount,
+        failedCount: prep.failedCount,
+      };
+    }
+
+    const isGatewayConfigured = smsGateway.isGatewayConfigured();
 
     let sentCount = 0;
     let pendingCount = 0;
@@ -522,6 +576,115 @@ async function sendSosResolvedAlerts({ sosId, userId, resolvedAt }) {
   }
 }
 
+/**
+ * Apply device-reported SMS status updates from the authenticated user's phone.
+ */
+async function reportDeviceSmsResults({ sosId, userId, results }) {
+  if (!Array.isArray(results) || results.length === 0) {
+    return { updated: 0, message: 'No results provided.' };
+  }
+
+  const incidentRes = await db.query(
+    `SELECT id FROM sos_incidents WHERE id = $1 AND user_id = $2`,
+    [sosId, userId]
+  );
+  if (incidentRes.rows.length === 0) {
+    const err = new Error('SOS incident not found or access denied.');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const allowed = new Set(['PENDING', 'SENT', 'DELIVERED', 'FAILED']);
+  let updated = 0;
+
+  for (const item of results) {
+    const notificationId = item.notificationId;
+    const status = (item.status || '').toUpperCase();
+    if (!notificationId || !allowed.has(status)) continue;
+
+    const updateRes = await db.query(
+      `UPDATE sos_notifications n
+       SET status = $1,
+           error_message = $2,
+           provider_message_id = COALESCE($3, n.provider_message_id),
+           sent_at = CASE WHEN $1 IN ('SENT', 'DELIVERED', 'FAILED') THEN COALESCE(n.sent_at, CURRENT_TIMESTAMP) ELSE n.sent_at END
+       FROM sos_incidents i
+       WHERE n.id = $4 AND n.sos_id = i.id AND i.id = $5 AND i.user_id = $6
+       RETURNING n.*`,
+      [
+        status,
+        item.errorMessage || null,
+        item.providerMessageId || null,
+        notificationId,
+        sosId,
+        userId,
+      ]
+    );
+    if (updateRes.rows.length > 0) updated++;
+  }
+
+  const countsRes = await db.query(
+    `SELECT status, COUNT(*)::int AS cnt
+     FROM sos_notifications WHERE sos_id = $1 GROUP BY status`,
+    [sosId]
+  );
+  const counts = Object.fromEntries(countsRes.rows.map((r) => [r.status, r.cnt]));
+  const sent = counts.SENT || 0;
+  const delivered = counts.DELIVERED || 0;
+  const pending = counts.PENDING || 0;
+  const failed = counts.FAILED || 0;
+  const successLike = sent + delivered + pending;
+
+  let finalStatus = 'PENDING';
+  if (successLike === 0 && failed > 0) finalStatus = 'FAILED';
+  else if (failed > 0 && successLike > 0) finalStatus = 'PARTIAL';
+  else if (pending > 0 && sent + delivered === 0) finalStatus = 'PENDING';
+  else if (sent + delivered > 0 && failed === 0 && pending === 0) finalStatus = 'SENT';
+
+  await db.query(`UPDATE sos_incidents SET notification_status = $1 WHERE id = $2`, [
+    finalStatus,
+    sosId,
+  ]);
+
+  return { updated, incidentNotificationStatus: finalStatus, counts };
+}
+
+/**
+ * Build device SMS payload for notifications still waiting on the phone (PENDING + DEVICE_*).
+ */
+async function buildPendingDeviceSmsPayload({ sosId, incident, customMessage }) {
+  const pendingRes = await db.query(
+    `SELECT n.* FROM sos_notifications n
+     WHERE n.sos_id = $1 AND n.status = 'PENDING'
+       AND (n.provider_message_id LIKE 'DEVICE_%' OR n.provider_message_id = 'DEVICE_PENDING')
+     ORDER BY n.sent_at ASC NULLS FIRST, n.id ASC`,
+    [sosId]
+  );
+  if (pendingRes.rows.length === 0) return null;
+
+  const messageBody =
+    customMessage ||
+    buildAlertMessage({
+      activatedAt: incident.activated_at,
+      latitude: incident.latitude,
+      longitude: incident.longitude,
+      trackingUrl: incident.tracking_token
+        ? `${process.env.BACKEND_BASE_URL || 'https://nirbhay-9d5i.onrender.com'}/track/${incident.tracking_token}`
+        : null,
+    });
+
+  const recipients = pendingRes.rows.map((row) => ({
+    notificationId: row.id,
+    contactId: row.contact_id,
+    contactName: row.contact_name,
+    contactPhone: row.contact_phone,
+    dispatchPhone: smsGateway.normalizePhoneNumber(row.contact_phone),
+    simulateOnly: row.provider_message_id === 'DEVICE_TEST_SIMULATED',
+  }));
+
+  return { messageBody, recipients, isTestMode: false };
+}
+
 module.exports = {
   buildAlertMessage,
   buildResolvedMessage,
@@ -531,5 +694,7 @@ module.exports = {
   sendAlertsToUserContacts,
   sendSosAlerts,
   sendSosResolvedAlerts,
+  reportDeviceSmsResults,
+  buildPendingDeviceSmsPayload,
 };
 

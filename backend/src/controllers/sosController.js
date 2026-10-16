@@ -89,6 +89,8 @@ const createSos = async (req, res) => {
       message: 'SOS emergency incident activated successfully.',
       incident: updatedIncidentRes.rows[0] || newIncident,
       notifications: notificationSummary,
+      deviceSms: notificationSummary.deviceSms || null,
+      smsDispatchMode: notificationSummary.dispatchMode || process.env.SMS_DISPATCH_MODE || 'DEVICE',
     });
   } catch (error) {
     console.error('Error creating SOS incident:', error);
@@ -135,10 +137,21 @@ const getActiveSos = async (req, res) => {
       [incident.id]
     );
 
+    let deviceSms = null;
+    const { isDeviceSmsMode } = require('../services/smsDispatchMode');
+    if (isDeviceSmsMode()) {
+      const { buildPendingDeviceSmsPayload } = require('../services/notificationService');
+      deviceSms = await buildPendingDeviceSmsPayload({
+        sosId: incident.id,
+        incident,
+      });
+    }
+
     return res.status(200).json({
       active: true,
       incident,
       notifications: notificationsRes.rows,
+      deviceSms,
     });
   } catch (error) {
     console.error('Error retrieving active SOS incident:', error);
@@ -228,6 +241,8 @@ const resolveSos = async (req, res) => {
       message: 'SOS incident resolved successfully. Emergency contacts notified that you are safe now.',
       incident: resolvedIncident,
       notifications: resolutionNotifications,
+      deviceSms: resolutionNotifications.deviceSms || null,
+      smsDispatchMode: resolutionNotifications.dispatchMode || process.env.SMS_DISPATCH_MODE || 'DEVICE',
     });
   } catch (error) {
     console.error('Error resolving SOS incident:', error);
@@ -298,6 +313,17 @@ const testSms = async (req, res) => {
   try {
     const smsGateway = require('../services/smsGatewayService');
     const isConfigured = smsGateway.isGatewayConfigured();
+
+    const { isDeviceSmsMode } = require('../services/smsDispatchMode');
+    if (isDeviceSmsMode()) {
+      return res.status(400).json({
+        success: false,
+        status: 'DEVICE_MODE',
+        errorCategory: 'DISPATCH_MODE',
+        message:
+          'SMS_DISPATCH_MODE=DEVICE: test SMS must be sent from the Nirbhay Android app (native SIM). The Render backend does not send SOS SMS in device mode.',
+      });
+    }
 
     if (!isConfigured) {
       return res.status(400).json({
@@ -471,6 +497,33 @@ const handleGatewayWebhook = async (req, res) => {
  * GET /api/sos/messages/:id
  * Query real-time message status and carrier error details from gateway
  */
+/**
+ * POST /api/sos/:id/device-sms/results
+ * Report native Android SMS send/delivery outcomes from the user's device.
+ */
+const reportDeviceSmsResults = async (req, res) => {
+  const userId = req.userId;
+  const { id: sosId } = req.params;
+  const { results } = req.body;
+
+  try {
+    const { reportDeviceSmsResults: applyResults } = require('../services/notificationService');
+    const summary = await applyResults({ sosId, userId, results });
+    return res.status(200).json({
+      message: 'Device SMS results recorded.',
+      ...summary,
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    if (status >= 500) {
+      console.error('Error recording device SMS results:', error);
+    }
+    return res.status(status).json({
+      message: error.message || 'Failed to record device SMS results.',
+    });
+  }
+};
+
 const getMessageDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -492,6 +545,7 @@ module.exports = {
   getGatewayStatus,
   getMessageDetails,
   handleGatewayWebhook,
+  reportDeviceSmsResults,
 };
 
 
