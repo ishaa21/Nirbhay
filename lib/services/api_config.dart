@@ -20,4 +20,13 @@ class ApiConfig {
     }
     return _productionUrl;
   }
+
+  /// Web origin for public tracking links (no /api suffix).
+  static String get publicWebBaseUrl {
+    final api = baseUrl;
+    if (api.endsWith('/api')) {
+      return api.substring(0, api.length - 4);
+    }
+    return api.replaceAll(RegExp(r'/api/?$'), '');
+  }
 }

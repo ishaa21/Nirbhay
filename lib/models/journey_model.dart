@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 /// Model for a live journey session
 class JourneyModel {

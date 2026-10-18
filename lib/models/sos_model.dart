@@ -1,3 +1,5 @@
+import '../services/api_config.dart';
+
 class SosIncidentModel {
   final String id;
   final String userId;
@@ -27,7 +29,8 @@ class SosIncidentModel {
   /// Returns the public guardian live-tracking URL, or null if no token is available
   String? get trackingUrl {
     if (trackingToken == null || trackingToken!.isEmpty) return null;
-    return 'https://nirbhay-9d5i.onrender.com/track/$trackingToken';
+    final base = ApiConfig.publicWebBaseUrl;
+    return '$base/track/$trackingToken';
   }
 
   factory SosIncidentModel.fromJson(Map<String, dynamic> json) {

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/sos_model.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
+import 'sos_sms_dispatcher.dart';
 
 class SosService {
   static final SosService _instance = SosService._internal();
@@ -121,11 +122,18 @@ class SosService {
 
       if (response.statusCode == 201) {
         final incident = SosIncidentModel.fromJson(data['incident']);
+        final deviceSms = data['deviceSms'] as Map<String, dynamic>?;
+        // Fire-and-forget: native SMS from this device (does not block SOS activation UI).
+        SosSmsDispatcher().dispatchDeviceSmsPayload(
+          sosId: incident.id,
+          deviceSms: deviceSms,
+        );
         return {
           'success': true,
           'incident': incident,
           'message': data['message'] ?? 'SOS incident activated.',
           'notifications': data['notifications'],
+          'deviceSms': deviceSms,
         };
       } else if (response.statusCode == 409) {
         // Active incident already exists
@@ -185,11 +193,20 @@ class SosService {
         final List rawLogs = data['notifications'] ?? [];
         final notifications = rawLogs.map((e) => SosNotificationModel.fromJson(e)).toList();
 
+        final deviceSms = data['deviceSms'] as Map<String, dynamic>?;
+        if (active && incident != null && deviceSms != null) {
+          SosSmsDispatcher().dispatchDeviceSmsPayload(
+            sosId: incident.id,
+            deviceSms: deviceSms,
+          );
+        }
+
         return {
           'success': true,
           'active': active,
           'incident': incident,
           'notifications': notifications,
+          'deviceSms': deviceSms,
         };
       } else {
         return {
@@ -256,10 +273,16 @@ class SosService {
 
       if (response.statusCode == 200) {
         final incident = SosIncidentModel.fromJson(data['incident']);
+        final deviceSms = data['deviceSms'] as Map<String, dynamic>?;
+        SosSmsDispatcher().dispatchDeviceSmsPayload(
+          sosId: incident.id,
+          deviceSms: deviceSms,
+        );
         return {
           'success': true,
           'incident': incident,
           'message': data['message'] ?? 'SOS incident resolved.',
+          'deviceSms': deviceSms,
         };
       } else {
         return {

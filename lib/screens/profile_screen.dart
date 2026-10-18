@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/shake_sos_service.dart';
 import 'signin_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -309,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _buildMenuItemTile(
                   icon: Icons.gpp_maybe_outlined,
                   title: 'Safety Settings',
-                  onTap: () => _showMenuBottomSheet('Safety Settings', 'Configure SOS trigger gesture, automatic location sharing, and fake call.'),
+                  onTap: () => _showSafetySettingsBottomSheet(),
                   showDivider: true,
                 ),
                 _buildMenuItemTile(
@@ -537,6 +538,201 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ─────────────────────────────────────────────────────────────────
   //  Actions & Modal Sheet Helpers
   // ─────────────────────────────────────────────────────────────────
+  void _showSafetySettingsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        bool isShakeEnabled = false;
+        String sensitivity = 'DEFAULT';
+        bool isLoading = true;
+
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            if (isLoading) {
+              ShakeSosService().isServiceEnabled().then((enabled) {
+                if (ctx.mounted) {
+                  setSheetState(() {
+                    isShakeEnabled = enabled;
+                    isLoading = false;
+                  });
+                }
+              });
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.gpp_maybe_outlined, color: _primary, size: 24),
+                          SizedBox(width: 8),
+                          Text(
+                            'Safety Settings',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: _primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.vibration, color: _primary, size: 22),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Shake-to-SOS Detection',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: _onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Detect shakes in background & lock screen',
+                                    style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : Switch(
+                                    value: isShakeEnabled,
+                                    activeColor: _primary,
+                                    onChanged: (val) async {
+                                      setSheetState(() => isLoading = true);
+                                      final ok = val
+                                          ? await ShakeSosService().startShakeService()
+                                          : await ShakeSosService().stopShakeService();
+                                      if (ctx.mounted) {
+                                        setSheetState(() {
+                                          isLoading = false;
+                                          if (ok) isShakeEnabled = val;
+                                        });
+                                      }
+                                    },
+                                  ),
+                          ],
+                        ),
+                        if (isShakeEnabled) ...[
+                          const Divider(height: 24),
+                          const Text(
+                            'Shake Sensitivity',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _onSurface),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: ['LOW', 'DEFAULT', 'HIGH'].map((lvl) {
+                              final isSelected = sensitivity == lvl;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(lvl, style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected ? Colors.white : _onSurfaceVariant,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  )),
+                                  selected: isSelected,
+                                  selectedColor: _primary,
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setSheetState(() => sensitivity = lvl);
+                                      ShakeSosService().setSensitivity(lvl);
+                                    }
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F2FA),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Icon(Icons.info_outline, size: 18, color: Color(0xFF49454F)),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'When a valid shake is detected, a 15-second countdown notification and full-screen alarm appear. Cancel anytime to prevent alerts. If uncancelled, SOS is automatically dispatched.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF49454F), height: 1.35),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showMenuBottomSheet(String title, String description) {
     showModalBottomSheet(
       context: context,

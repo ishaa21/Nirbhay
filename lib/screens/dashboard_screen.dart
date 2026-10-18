@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,6 +19,8 @@ import 'helplines_screen.dart';
 import 'safety_tips_screen.dart';
 import '../models/safety_timer_model.dart';
 import '../services/safety_timer_service.dart';
+import '../services/shake_sos_service.dart';
+import '../widgets/shake_countdown_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,7 +42,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   SafetyTimerModel? _activeSafetyTimer;
   int? _timerRemainingMs;
   bool _isActivatingSos = false;
+  // ignore: unused_field
   bool _isLoadingActiveSos = false;
+  bool _isResolvingSos = false;
+  bool _isShakeEnabled = false;
+  bool _isTogglingShake = false;
+  StreamSubscription<ShakeSosEvent>? _shakeEventsSub;
+  bool _isCountdownDialogShowing = false;
 
   @override
   void initState() {
@@ -52,6 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       CurvedAnimation(parent: _sosAnimController, curve: Curves.easeInOut),
     );
     _loadUserAndActiveSos();
+    _initShakeSos();
   }
 
   Future<void> _loadUserAndActiveSos() async {
@@ -104,10 +114,180 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _sosAnimController.dispose();
+    _shakeEventsSub?.cancel();
     // Do NOT stop LocationUpdateService here — active SOS tracking must persist
     // across dashboard navigation and screen transitions until resolved/cancelled.
     super.dispose();
   }
+
+  Future<void> _initShakeSos() async {
+    final isEnabled = await ShakeSosService().isServiceEnabled();
+    if (mounted) {
+      setState(() => _isShakeEnabled = isEnabled);
+    }
+
+    final countdownState = await ShakeSosService().getCountdownState();
+    if (countdownState['isActive'] == true && mounted) {
+      final remaining = (countdownState['remainingSeconds'] as int?) ?? 15;
+      if (remaining > 0 && !_isCountdownDialogShowing) {
+        _showShakeCountdownModal(remaining);
+      }
+    }
+
+    _shakeEventsSub = ShakeSosService().shakeEvents.listen((event) {
+      if (!mounted) return;
+      if (event.type == ShakeSosEventType.countdownStarted) {
+        if (!_isCountdownDialogShowing) {
+          _showShakeCountdownModal(event.remainingSeconds > 0 ? event.remainingSeconds : 15);
+        }
+      } else if (event.type == ShakeSosEventType.countdownExpired) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            _refreshActiveSos();
+          }
+        });
+      }
+    });
+  }
+
+  void _showShakeCountdownModal(int seconds) {
+    _isCountdownDialogShowing = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.85),
+      builder: (ctx) => ShakeCountdownDialog(
+        initialSeconds: seconds,
+        onCancelled: () {
+          _isCountdownDialogShowing = false;
+        },
+        onExpired: () {
+          _isCountdownDialogShowing = false;
+          _refreshActiveSos();
+        },
+      ),
+    ).then((_) {
+      _isCountdownDialogShowing = false;
+    });
+  }
+
+  Future<void> _toggleShakeService(bool value) async {
+    setState(() => _isTogglingShake = true);
+    bool success;
+    if (value) {
+      success = await ShakeSosService().startShakeService();
+    } else {
+      success = await ShakeSosService().stopShakeService();
+    }
+    if (mounted) {
+      setState(() {
+        _isTogglingShake = false;
+        if (success) {
+          _isShakeEnabled = value;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? (value ? 'Shake-to-SOS background detection enabled' : 'Shake-to-SOS disabled')
+                : 'Failed to update Shake-to-SOS service',
+          ),
+          backgroundColor: success ? const Color(0xFF2A1020) : const Color(0xFFD32F2F),
+        ),
+      );
+    }
+  }
+
+  Widget _buildShakeSosCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _isShakeEnabled ? const Color(0xFF8E4B72).withOpacity(0.4) : const Color(0xFFE0D8DC),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _isShakeEnabled ? const Color(0xFF8E4B72).withOpacity(0.12) : const Color(0xFFF0EBEF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.vibration_rounded,
+              color: _isShakeEnabled ? const Color(0xFF8E4B72) : _textSecondary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Shake-to-SOS',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (_isShakeEnabled)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7BC67A).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'ACTIVE',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  '15-sec countdown on shake, even in background',
+                  style: TextStyle(fontSize: 11, color: _textSecondary),
+                ),
+              ],
+            ),
+          ),
+          _isTogglingShake
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8E4B72)),
+                )
+              : Switch(
+                  value: _isShakeEnabled,
+                  activeColor: const Color(0xFF8E4B72),
+                  onChanged: _isTogglingShake ? null : _toggleShakeService,
+                ),
+        ],
+      ),
+    );
+  }
+
 
   // ── colour tokens ────────────────────────────────────────────────
   static const Color _bg = Color(0xFFF7F3F5);
@@ -471,22 +651,35 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _handleResolve(String incidentId) async {
-    final res = await SosService().resolveSos(incidentId);
-    if (!mounted) return;
+    if (_isResolvingSos) return;
+    setState(() => _isResolvingSos = true);
+    try {
+      final res = await SosService().resolveSos(incidentId);
+      if (!mounted) return;
 
-    if (res['success'] == true) {
-      LocationUpdateService().stop();
-      setState(() => _activeSosIncident = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('SOS resolved. Emergency contacts notified that you are safe now.'),
-          backgroundColor: Color(0xFF2E7D32),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Failed to resolve SOS.')),
-      );
+      if (res['success'] == true) {
+        LocationUpdateService().stop();
+        setState(() => _activeSosIncident = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('SOS resolved. "User is safe" SMS sent to emergency contacts.'),
+            backgroundColor: Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Failed to resolve SOS.'),
+            backgroundColor: const Color(0xFFD32F2F),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isResolvingSos = false);
+      }
     }
   }
 
@@ -859,9 +1052,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: () => _handleResolve(incident.id),
-                  icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text('Resolve', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  onPressed: _isResolvingSos ? null : () => _handleResolve(incident.id),
+                  icon: _isResolvingSos
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 16),
+                  label: Text(_isResolvingSos ? 'Resolving...' : 'Resolve', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1063,7 +1262,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           // SOS Button
           _buildSOSButton(),
-          const SizedBox(height: 36),
+          const SizedBox(height: 20),
+
+          // Shake-to-SOS Quick Status & Toggle Card
+          _buildShakeSosCard(),
+          const SizedBox(height: 28),
 
           // Safety Suite
           _buildSectionLabel('SAFETY SUITE'),

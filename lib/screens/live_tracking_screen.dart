@@ -1115,7 +1115,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       setState(() => _activeIncident = null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('SOS resolved. Emergency contacts notified that you are safe.'),
+          content: Text('SOS resolved. "User is safe" SMS sent to emergency contacts.'),
           backgroundColor: Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
         ),

@@ -16,6 +16,21 @@
     <!-- Haptic vibration for simulated fake call and alerts -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Send SOS SMS directly from the user's SIM (Google Play: declare emergency use case) -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+
+    <!-- Foreground service special use for Android 14+ background sensor monitoring -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Android 13+ runtime notification permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Show 15-second SOS countdown over lockscreen on shake detection -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Resume shake detection after reboot if user has enabled it -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:label="nirbhay"
         android:name="${applicationName}"
@@ -28,7 +43,9 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true">
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
@@ -54,6 +71,38 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- Background Shake-to-SOS foreground service with sensor monitoring -->
+        <service
+            android:name=".ShakeDetectionService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse|location">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Emergency shake detection for women personal safety alerts" />
+        </service>
+
+        <!-- Broadcast receiver for cancelling active SOS countdown from notification action -->
+        <receiver
+            android:name=".CancelSosReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ishaa21.nirbhay.ACTION_CANCEL_SOS" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Boot receiver to restore shake monitoring on device reboot if enabled -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
