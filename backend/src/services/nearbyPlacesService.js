@@ -154,18 +154,30 @@ function normalizePlaceItem(item, userLat, userLng) {
   // Full address
   let address = item.display_name || null;
 
-  // Phone: check extratags or address tags
-  let phone =
-    item.extratags?.['contact:phone'] ||
-    item.extratags?.phone ||
-    item.extratags?.['contact:mobile'] ||
+  // Phone: check multiple common OSM / Nominatim tags across extratags, address, and tags
+  const tags = { ...(item.tags || {}), ...(item.extratags || {}) };
+  let rawPhone =
+    tags['contact:phone'] ||
+    tags.phone ||
+    tags['contact:mobile'] ||
+    tags.mobile ||
+    tags['emergency:phone'] ||
+    tags.emergency_phone ||
+    tags['phone:emergency'] ||
+    tags.tel ||
+    (item.address && item.address.phone) ||
     null;
 
-  if (phone) {
-    phone = phone.trim();
-    // In India/OSM, multiple numbers can be separated by semicolons or slashes; take primary
-    if (phone.includes(';')) {
-      phone = phone.split(';')[0].trim();
+  let phone = null;
+  if (rawPhone && typeof rawPhone === 'string') {
+    let p = rawPhone.trim();
+    // Split on semicolon, slash, or comma if multiple numbers provided
+    if (p.includes(';')) p = p.split(';')[0].trim();
+    else if (p.includes('/')) p = p.split('/')[0].trim();
+    else if (p.includes(',')) p = p.split(',')[0].trim();
+    // Valid phone strings usually have at least 3 digits
+    if ((p.match(/\d/g) || []).length >= 3) {
+      phone = p;
     }
   }
 
