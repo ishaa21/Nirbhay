@@ -89,8 +89,22 @@ class NirbhayShakePlugin(
         eventChannel.setStreamHandler(null)
     }
 
+    private var pendingSosTrigger = false
+
+    fun triggerSosFromIntent() {
+        if (eventSink != null) {
+            onCountdownExpired()
+        } else {
+            pendingSosTrigger = true
+        }
+    }
+
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         eventSink = events
+        if (pendingSosTrigger) {
+            pendingSosTrigger = false
+            onCountdownExpired()
+        }
     }
 
     override fun onCancel(arguments: Any?) {
@@ -140,6 +154,49 @@ class NirbhayShakePlugin(
                 val sensitivity = call.argument<String>("sensitivity") ?: "DEFAULT"
                 val prefs = activity.getSharedPreferences(ShakeDetectionService.PREFS_NAME, Context.MODE_PRIVATE)
                 prefs.edit().putString(ShakeDetectionService.KEY_SENSITIVITY, sensitivity).apply()
+                result.success(true)
+            }
+            "canDrawOverlays" -> {
+                val canDraw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    android.provider.Settings.canDrawOverlays(activity)
+                } else {
+                    true
+                }
+                result.success(canDraw)
+            }
+            "requestOverlayPermission" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val intent = Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:${activity.packageName}")
+                    )
+                    activity.startActivity(intent)
+                    result.success(true)
+                } else {
+                    result.success(true)
+                }
+            }
+            "canUseFullScreenIntent" -> {
+                val canUse = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val nm = activity.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    nm.canUseFullScreenIntent()
+                } else {
+                    true
+                }
+                result.success(canUse)
+            }
+            "openNotificationSettings" -> {
+                val intent = Intent().apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        action = android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, activity.packageName)
+                    } else {
+                        action = "android.settings.APP_NOTIFICATION_SETTINGS"
+                        putExtra("app_package", activity.packageName)
+                        putExtra("app_uid", activity.applicationInfo.uid)
+                    }
+                }
+                activity.startActivity(intent)
                 result.success(true)
             }
             else -> result.notImplemented()

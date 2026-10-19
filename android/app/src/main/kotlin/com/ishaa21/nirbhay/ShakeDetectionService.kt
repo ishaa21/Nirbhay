@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.os.Build
@@ -21,15 +20,17 @@ import androidx.core.app.NotificationCompat
 /**
  * Foreground Service for continuous background Shake-to-SOS monitoring.
  *
- * Runs a persistent low-priority foreground notification while monitoring sensors
+ * Runs a persistent low-priority foreground notification while monitoring sensors,
  * to comply with Android 9+ background sensor execution policies.
  *
  * When a valid shake is detected:
- * 1. Persists countdown state in SharedPreferences.
- * 2. Launches a high-priority heads-up / full-screen notification with 15s countdown.
- * 3. Provides a direct "CANCEL SOS" action button in the notification.
- * 4. Ticks countdown every second and notifies Flutter via EventChannel.
- * 5. If uncancelled after 15s, authoritative expiry triggers the SOS emergency workflow.
+ * 1. Persists countdown state authoritatively in SharedPreferences.
+ * 2. Launches ShakeCountdownActivity over the lock screen and over other apps.
+ * 3. Posts a MAX-priority heads-up notification with a direct CANCEL SOS action
+ *    (works outside the app via CancelSosReceiver BroadcastReceiver).
+ * 4. Sets fullScreenIntent pointing to ShakeCountdownActivity (not MainActivity).
+ * 5. Ticks countdown every second, broadcasts locally so the activity updates in real-time.
+ * 6. If uncancelled after 15s, triggers the SOS emergency workflow exactly once.
  */
 class ShakeDetectionService : Service() {
 
@@ -45,6 +46,7 @@ class ShakeDetectionService : Service() {
         const val ACTION_STOP = "com.ishaa21.nirbhay.ACTION_STOP_SHAKE_SERVICE"
         const val ACTION_CANCEL_COUNTDOWN = "com.ishaa21.nirbhay.ACTION_CANCEL_COUNTDOWN"
         const val ACTION_TRIGGER_SOS_NOW = "com.ishaa21.nirbhay.ACTION_TRIGGER_SOS_NOW"
+        // Local broadcast action for sending tick updates to ShakeCountdownActivity
         const val ACTION_COUNTDOWN_TICK = "com.ishaa21.nirbhay.ACTION_COUNTDOWN_TICK"
 
         const val CHANNEL_MONITOR_ID = "nirbhay_shake_monitor_channel"
@@ -60,14 +62,20 @@ class ShakeDetectionService : Service() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().putBoolean(KEY_COUNTDOWN_ACTIVE, false).apply()
 
+            // Cancel the in-service CountDownTimer
             activeServiceInstance?.handleCancellationInternal()
 
             // Dismiss countdown notification
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(NOTIFICATION_COUNTDOWN_ID)
 
-            // Notify Flutter via plugin if active
+            // Notify Flutter via plugin if app is running
             NirbhayShakePlugin.onCountdownCancelled()
+
+            // Broadcast locally so ShakeCountdownActivity dismisses itself immediately
+            val dismissIntent = Intent(ACTION_CANCEL_COUNTDOWN)
+            context.sendBroadcast(dismissIntent)
         }
 
         fun isCountdownActive(context: Context): Boolean {
@@ -101,7 +109,8 @@ class ShakeDetectionService : Service() {
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            val vibratorManager =
+                getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vibratorManager.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
@@ -154,7 +163,10 @@ class ShakeDetectionService : Service() {
     private fun stopForegroundMonitoring() {
         unregisterSensorListener()
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_ENABLED, false).putBoolean(KEY_COUNTDOWN_ACTIVE, false).apply()
+        prefs.edit()
+            .putBoolean(KEY_ENABLED, false)
+            .putBoolean(KEY_COUNTDOWN_ACTIVE, false)
+            .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -204,8 +216,13 @@ class ShakeDetectionService : Service() {
         // Haptic warning alert
         vibrateWarning()
 
-        // Launch full-screen countdown notification
+        // Post heads-up notification with CANCEL SOS action and full-screen intent
+        // pointing at ShakeCountdownActivity (not MainActivity).
         showCountdownNotification(15)
+
+        // Launch ShakeCountdownActivity immediately — this is the primary
+        // presentation path for lock-screen and over-other-apps display.
+        launchCountdownActivity(15)
 
         // Notify Flutter via plugin if app is running
         NirbhayShakePlugin.onCountdownStarted(countdownEnd, 15)
@@ -216,7 +233,11 @@ class ShakeDetectionService : Service() {
             override fun onTick(millisUntilFinished: Long) {
                 val remainingSec = ((millisUntilFinished + 999) / 1000).toInt()
                 if (isCountdownActive(this@ShakeDetectionService)) {
+                    // Update the notification text
                     updateCountdownNotification(remainingSec)
+                    // Broadcast tick locally so ShakeCountdownActivity updates in real-time
+                    broadcastTick(remainingSec)
+                    // Also notify Flutter via EventChannel (if app is foreground)
                     NirbhayShakePlugin.onCountdownTick(remainingSec)
                 }
             }
@@ -229,6 +250,30 @@ class ShakeDetectionService : Service() {
                 }
             }
         }.start()
+    }
+
+    private fun launchCountdownActivity(remainingSeconds: Int) {
+        try {
+            val intent = Intent(this, ShakeCountdownActivity::class.java).apply {
+                putExtra("remainingSeconds", remainingSeconds)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            // If startActivity fails (e.g. background activity restrictions),
+            // the heads-up notification with CANCEL action is still displayed.
+            android.util.Log.w("ShakeService", "Could not launch ShakeCountdownActivity: ${e.message}")
+        }
+    }
+
+    private fun broadcastTick(remainingSeconds: Int) {
+        val intent = Intent(ACTION_COUNTDOWN_TICK).apply {
+            putExtra("remainingSeconds", remainingSeconds)
+            setPackage(packageName) // Restrict to our own app process only
+        }
+        sendBroadcast(intent)
     }
 
     private fun handleCancellationInternal() {
@@ -245,15 +290,23 @@ class ShakeDetectionService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_COUNTDOWN_ID)
 
-        // Trigger SOS workflow
+        // Trigger SOS workflow via Flutter event channel (if Flutter is active)
         NirbhayShakePlugin.onCountdownExpired()
 
-        // Also launch MainActivity if Flutter was in background so user sees SOS is activated
-        val intent = Intent(this, MainActivity::class.java).apply {
-            action = ACTION_TRIGGER_SOS_NOW
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        // Launch MainActivity so the SOS workflow is executed by Flutter even if app was closed.
+        // The pendingSosTrigger in NirbhayShakePlugin ensures the event is re-fired
+        // once Flutter Engine is attached.
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                action = ACTION_TRIGGER_SOS_NOW
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.w("ShakeService", "Could not launch MainActivity for SOS: ${e.message}")
         }
-        startActivity(intent)
     }
 
     private fun buildMonitoringNotification(): Notification {
@@ -279,7 +332,7 @@ class ShakeDetectionService : Service() {
     private fun showCountdownNotification(remainingSeconds: Int) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Cancel Intent
+        // CANCEL SOS action: sends broadcast to CancelSosReceiver — works without opening the app.
         val cancelIntent = Intent(this, CancelSosReceiver::class.java).apply {
             action = CancelSosReceiver.ACTION_CANCEL_SOS
         }
@@ -290,11 +343,15 @@ class ShakeDetectionService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        // Full-screen Intent (launches / brings MainActivity to front over lockscreen)
-        val fullScreenIntent = Intent(this, MainActivity::class.java).apply {
-            action = ACTION_COUNTDOWN_TICK
+        // Full-screen intent: launches ShakeCountdownActivity over lock screen.
+        // This is the correct implementation — the full-screen intent target must be
+        // a dedicated Activity (ShakeCountdownActivity), NOT MainActivity, to avoid
+        // interrupting the running Flutter UI unnecessarily.
+        val fullScreenIntent = Intent(this, ShakeCountdownActivity::class.java).apply {
             putExtra("remainingSeconds", remainingSeconds)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
             this,
@@ -311,8 +368,14 @@ class ShakeDetectionService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setOngoing(true)
             .setAutoCancel(false)
+            // Full-screen intent attempts to show ShakeCountdownActivity on lock screen.
+            // On Android 14+ this requires MANAGE_MEDIA_PROJECTION or USE_FULL_SCREEN_INTENT
+            // to be granted by the user. If not granted, the notification is displayed as
+            // a heads-up notification with the CANCEL SOS action button still present.
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            // Tapping the notification body also opens the countdown activity
             .setContentIntent(fullScreenPendingIntent)
+            // CANCEL SOS notification action: works even when phone is locked
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "CANCEL SOS",
@@ -343,7 +406,8 @@ class ShakeDetectionService : Service() {
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
             // Monitoring channel (silent, low priority)
             val monitorChannel = NotificationChannel(
@@ -355,7 +419,8 @@ class ShakeDetectionService : Service() {
                 setShowBadge(false)
             }
 
-            // Countdown channel (high priority, heads-up, vibration)
+            // Countdown channel: must be IMPORTANCE_HIGH to trigger heads-up and
+            // allow the system to attempt full-screen intent display on lock screen.
             val countdownChannel = NotificationChannel(
                 CHANNEL_COUNTDOWN_ID,
                 "Emergency SOS Countdown",

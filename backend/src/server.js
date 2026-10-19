@@ -8,6 +8,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const sosRoutes = require('./routes/sosRoutes');
 const timerRoutes = require('./routes/timerRoutes');
 const journeyRoutes = require('./routes/journeyRoutes');
+const nearbyRoutes = require('./routes/nearbyRoutes');
 const { processExpiredTimers } = require('./controllers/timerController');
 
 const path = require('path');
@@ -31,6 +32,8 @@ app.use('/api/contacts', contactRoutes);
 app.use('/api/sos', sosRoutes);
 app.use('/api/timer', timerRoutes);
 app.use('/api/journey', journeyRoutes);
+app.use('/api/nearby', nearbyRoutes);
+app.use('/api/nearby-services', nearbyRoutes);
 
 
 // Health Check Endpoint

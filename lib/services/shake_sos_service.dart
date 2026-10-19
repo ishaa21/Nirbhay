@@ -177,6 +177,59 @@ class ShakeSosService {
     }
   }
 
+  /// Returns true if the app is allowed to use full-screen intents.
+  ///
+  /// On Android 14 (API 34) and above, this requires the user to explicitly
+  /// grant USE_FULL_SCREEN_INTENT via Settings → Apps → Special app access.
+  /// On Android 13 and below, declaring the permission in the manifest is sufficient
+  /// and this always returns true.
+  Future<bool> canUseFullScreenIntent() async {
+    if (!isAndroid) return false;
+    try {
+      final res = await _methodChannel.invokeMethod<bool>('canUseFullScreenIntent');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns true if the app has the SYSTEM_ALERT_WINDOW (draw-over-other-apps) permission.
+  ///
+  /// On Android 6.0+ this must be granted by the user via Settings.
+  /// On older versions it is always true.
+  Future<bool> canDrawOverlays() async {
+    if (!isAndroid) return false;
+    try {
+      final res = await _methodChannel.invokeMethod<bool>('canDrawOverlays');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the system notification settings screen for this app.
+  ///
+  /// Use this to help the user grant USE_FULL_SCREEN_INTENT on Android 14+
+  /// or enable notification channels that may have been blocked.
+  Future<void> openNotificationSettings() async {
+    if (!isAndroid) return;
+    try {
+      await _methodChannel.invokeMethod('openNotificationSettings');
+    } catch (e) {
+      debugPrint('[ShakeSosService] Failed to open notification settings: $e');
+    }
+  }
+
+  /// Opens the system overlay permission settings screen for this app (SYSTEM_ALERT_WINDOW).
+  Future<void> requestOverlayPermission() async {
+    if (!isAndroid) return;
+    try {
+      await _methodChannel.invokeMethod('requestOverlayPermission');
+    } catch (e) {
+      debugPrint('[ShakeSosService] Failed to open overlay settings: $e');
+    }
+  }
+
   /// Handler invoked on SOS trigger. Defaults to SosService().createSos().
   /// Can be overridden for unit testing.
   @visibleForTesting
