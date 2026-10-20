@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/sos_model.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
+import 'location_update_service.dart';
 import 'sos_sms_dispatcher.dart';
 
 class SosService {
@@ -123,6 +124,8 @@ class SosService {
       if (response.statusCode == 201) {
         final incident = SosIncidentModel.fromJson(data['incident']);
         final deviceSms = data['deviceSms'] as Map<String, dynamic>?;
+        // Start live continuous GPS tracking automatically
+        LocationUpdateService().start(sosId: incident.id);
         // Fire-and-forget: native SMS from this device (does not block SOS activation UI).
         SosSmsDispatcher().dispatchDeviceSmsPayload(
           sosId: incident.id,
@@ -136,10 +139,13 @@ class SosService {
           'deviceSms': deviceSms,
         };
       } else if (response.statusCode == 409) {
-        // Active incident already exists
+        // Active incident already exists — ensure tracking is active
         final incident = data['incident'] != null 
             ? SosIncidentModel.fromJson(data['incident'])
             : null;
+        if (incident != null) {
+          LocationUpdateService().start(sosId: incident.id);
+        }
         return {
           'success': false,
           'alreadyActive': true,
@@ -274,6 +280,7 @@ class SosService {
       if (response.statusCode == 200) {
         final incident = SosIncidentModel.fromJson(data['incident']);
         final deviceSms = data['deviceSms'] as Map<String, dynamic>?;
+        LocationUpdateService().stop();
         SosSmsDispatcher().dispatchDeviceSmsPayload(
           sosId: incident.id,
           deviceSms: deviceSms,
@@ -316,6 +323,7 @@ class SosService {
 
       if (response.statusCode == 200) {
         final incident = SosIncidentModel.fromJson(data['incident']);
+        LocationUpdateService().stop();
         return {
           'success': true,
           'incident': incident,

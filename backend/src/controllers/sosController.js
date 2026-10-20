@@ -46,10 +46,14 @@ const createSos = async (req, res) => {
     );
 
     if (activeCheck.rows.length > 0) {
+      const existing = activeCheck.rows[0];
+      const backendBaseUrl = (process.env.BACKEND_BASE_URL || 'https://nirbhay-9d5i.onrender.com').replace(/\/+$/, '');
+      const existingTrackingUrl = existing.tracking_token ? `${backendBaseUrl}/track/${existing.tracking_token}` : null;
       return res.status(409).json({
         message: 'An active SOS incident is already in progress.',
         code: 'ACTIVE_INCIDENT_EXISTS',
-        incident: activeCheck.rows[0],
+        incident: existing,
+        trackingUrl: existingTrackingUrl,
       });
     }
 
@@ -66,7 +70,7 @@ const createSos = async (req, res) => {
     const newIncident = result.rows[0];
 
     // 4. Build tracking URL for guardians
-    const backendBaseUrl = process.env.BACKEND_BASE_URL || 'https://nirbhay-9d5i.onrender.com';
+    const backendBaseUrl = (process.env.BACKEND_BASE_URL || 'https://nirbhay-9d5i.onrender.com').replace(/\/+$/, '');
     const trackingUrl = `${backendBaseUrl}/track/${trackingToken}`;
 
     // 5. Dispatch notifications asynchronously (or await notification dispatch)

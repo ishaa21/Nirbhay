@@ -286,6 +286,37 @@
       0% { transform: scale(0.5); opacity: 1; }
       100% { transform: scale(1.6); opacity: 0; }
     }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .spin {
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    .btn-refresh {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-refresh:hover {
+      background: rgba(255, 255, 255, 0.24);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -299,9 +330,15 @@
         <div class="brand-sub">Live Guardian Shield</div>
       </div>
     </div>
-    <div id="status-badge" class="status-badge status-active">
-      <div class="pulse-dot"></div>
-      <span id="status-text">LIVE ALERT</span>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button id="btn-manual-refresh" class="btn-refresh" title="Refresh live coordinates now">
+        <span id="refresh-icon">🔄</span>
+        <span>Refresh</span>
+      </button>
+      <div id="status-badge" class="status-badge status-active">
+        <div class="pulse-dot"></div>
+        <span id="status-text">LIVE ALERT</span>
+      </div>
     </div>
   </header>
 
@@ -416,6 +453,8 @@
         }
         pathCoordinates.push([lat, lng]);
         if (pathLine) pathLine.setLatLngs(pathCoordinates);
+        // Follow latest coordinates so map never stays stuck at initial position
+        map.panTo([lat, lng], { animate: true, duration: 0.8 });
       }
     }
 
@@ -483,11 +522,12 @@
           const lastUpdateTs = new Date(data.lastUpdatedAt || data.activatedAt).getTime();
           const isStale = (Date.now() - lastUpdateTs) > 60000;
           const timeFormatted = formatRelativeTime(data.lastUpdatedAt || data.activatedAt);
+          const accText = data.accuracy ? ` • Accuracy: ±${Math.round(data.accuracy)}m` : '';
 
           if (isStale) {
-            document.getElementById('last-update-text').innerHTML = `<span style="color:#ffb74d;">⚠️ Stale GPS (${timeFormatted}) — poor signal or phone paused</span>`;
+            document.getElementById('last-update-text').innerHTML = `<span style="color:#ffb74d;">⚠️ Stale GPS (${timeFormatted}${accText}) — poor signal or phone paused</span>`;
           } else {
-            document.getElementById('last-update-text').textContent = timeFormatted;
+            document.getElementById('last-update-text').textContent = `${timeFormatted}${accText}`;
           }
 
           document.getElementById('coords-text').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
@@ -549,6 +589,19 @@
     document.getElementById('recenter-btn')?.addEventListener('click', () => {
       if (map && latestLat && latestLng) {
         map.setView([latestLat, latestLng], 16, { animate: true });
+      }
+    });
+
+    // Manual Refresh button
+    document.getElementById('btn-manual-refresh')?.addEventListener('click', async () => {
+      const icon = document.getElementById('refresh-icon');
+      if (icon) icon.classList.add('spin');
+      try {
+        await fetchTrackingStatus();
+      } finally {
+        setTimeout(() => {
+          if (icon) icon.classList.remove('spin');
+        }, 500);
       }
     });
 

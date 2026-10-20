@@ -59,7 +59,14 @@ class LocationUpdateService {
     const TrackingStatus(state: TrackingState.idle),
   );
 
+  /// Offline coordinate queue for network resilience (max 20 breadcrumbs)
+  final List<Map<String, dynamic>> _offlineQueue = [];
+
+  /// Minimum interval between consecutive HTTP uploads to preserve battery.
+  /// Can be tuned: 5s (high-frequency) to 30s (ultra battery saver).
   static const Duration _minUploadInterval = Duration(seconds: 10);
+
+  /// Heartbeat interval to check GPS fix and upload even if movement stream is quiet.
   static const Duration _heartbeatInterval = Duration(seconds: 15);
 
   bool get isRunning => _isRunning;
@@ -68,6 +75,7 @@ class LocationUpdateService {
   Position? get lastPosition => _lastPosition;
   DateTime? get lastSuccessfulUploadTime => _lastSuccessfulUploadTime;
   TrackingState get state => _state;
+  int get queuedOfflineUpdatesCount => _offlineQueue.length;
   bool get isStale =>
       _lastSuccessfulUploadTime != null &&
       DateTime.now().difference(_lastSuccessfulUploadTime!).inSeconds > 60;
@@ -261,6 +269,15 @@ class LocationUpdateService {
 
     _lastUploadAttemptTime = DateTime.now();
 
+    final currentFix = {
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'accuracy': position.accuracy,
+      'speed': position.speed >= 0 ? position.speed : null,
+      'heading': position.heading >= 0 ? position.heading : null,
+      'recorded_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
     try {
       final token = await AuthService().getToken();
       if (token == null || token.isEmpty) {
@@ -272,12 +289,18 @@ class LocationUpdateService {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       };
+
+      // Bundle pending offline fixes together with current fix for atomic replay
+      final List<Map<String, dynamic>> payloadUpdates = [
+        ..._offlineQueue,
+        currentFix,
+      ];
+
       final body = jsonEncode({
+        'updates': payloadUpdates,
         'latitude': position.latitude,
         'longitude': position.longitude,
         'accuracy': position.accuracy,
-        'speed': position.speed >= 0 ? position.speed : null,
-        'heading': position.heading >= 0 ? position.heading : null,
       });
 
       bool anySuccess = false;
@@ -292,6 +315,7 @@ class LocationUpdateService {
 
         if (response.statusCode == 200) {
           anySuccess = true;
+          _offlineQueue.clear();
         } else if (response.statusCode == 400) {
           sosInactive = true;
           _activeSosId = null;
@@ -310,6 +334,7 @@ class LocationUpdateService {
 
         if (response.statusCode == 200) {
           anySuccess = true;
+          _offlineQueue.clear();
         } else if (response.statusCode == 400) {
           _activeJourneyId = null;
         } else if (response.statusCode == 401) {
@@ -332,8 +357,14 @@ class LocationUpdateService {
         stop();
       }
     } catch (e) {
+      // Buffer fix into offline queue (capped at 20) for replay upon reconnection
+      if (_offlineQueue.length >= 20) {
+        _offlineQueue.removeAt(0);
+      }
+      _offlineQueue.add(currentFix);
+
       _notify(TrackingState.networkError, msg: 'Network error uploading location: $e');
-      debugPrint('[LocationUpdateService] Error uploading location: $e');
+      debugPrint('[LocationUpdateService] Error uploading location (buffered ${_offlineQueue.length} offline): $e');
     }
   }
 
@@ -354,6 +385,7 @@ class LocationUpdateService {
     _isRunning = false;
     _activeSosId = null;
     _activeJourneyId = null;
+    _offlineQueue.clear();
 
     _notify(TrackingState.stopped, msg: 'Tracking stopped.');
   }

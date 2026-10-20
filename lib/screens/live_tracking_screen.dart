@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
@@ -17,6 +19,7 @@ class LiveTrackingScreen extends StatefulWidget {
 }
 
 class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
+  final MapController _mapController = MapController();
   bool _routeDeviationAlarm = true;
   SosIncidentModel? _activeIncident;
   JourneyModel? _activeJourney;
@@ -61,7 +64,16 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   }
 
   void _onTrackingStatusChanged() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      final lat = _displayLatitude;
+      final lng = _displayLongitude;
+      if (lat != null && lng != null) {
+        try {
+          _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
+        } catch (_) {}
+      }
+      setState(() {});
+    }
   }
 
   Future<void> _fetchActiveIncident() async {
@@ -426,32 +438,81 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Real map background image
+          // Real OpenStreetMap Interactive View
           Positioned.fill(
-            child: Image.network(
-              'https://lh3.googleusercontent.com/aida-public/AB6AXuBgT-QSXwxNMNWdY-dwA2SNQwlc9OuGdo4VbnQQz2A4UiCuQqZmgsN_risUzWC9aEfYLtwSiy4rs-lZdZbTrp1crrEMQtUq-iMwysdgufazeKM3buHzJlRUuaweuNVIAWiwVjvi00P-uKpbVfzMcSCEUSr0vHIcb7L3Mz1hl0ITRu2XBg5SWeBFmDYCav6aSUaetODng-hAQnAhoA031DDJ1wizkkdy312MIWvEiD5n5LjI6krWzAXSmw',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: const Color(0xFFF0EBE8),
-                child: const Center(child: Icon(Icons.map, size: 48, color: Colors.grey)),
-              ),
-            ),
-          ),
-
-          // Ambient Gradient Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    _primary.withOpacity(0.35),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
+            child: (lat != null && lng != null)
+                ? FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: LatLng(lat, lng),
+                      initialZoom: 16.0,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.all,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.ishaa21.nirbhay',
+                        maxZoom: 19,
+                      ),
+                      CircleLayer(
+                        circles: [
+                          CircleMarker(
+                            point: LatLng(lat, lng),
+                            radius: (pos != null && pos.accuracy > 0) ? pos.accuracy : 25,
+                            useRadiusInMeter: true,
+                            color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.12),
+                            borderColor: isStale ? const Color(0xFFD32F2F) : _primary,
+                            borderStrokeWidth: 1.5,
+                          ),
+                        ],
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(lat, lng),
+                            width: 48,
+                            height: 48,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isStale ? const Color(0xFFD32F2F) : _primary,
+                                  border: Border.all(color: Colors.white, width: 2.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.4),
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.navigation, color: Colors.white, size: 20),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Container(
+                    color: const Color(0xFFF0EBE8),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                          SizedBox(height: 12),
+                          Text(
+                            'Acquiring live GPS fix...',
+                            style: TextStyle(color: _onSurfaceVariant, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
 
           // Navigation Waypoint / Staleness Badge Top-Left
@@ -514,58 +575,21 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               backgroundColor: Colors.white.withOpacity(0.95),
               child: IconButton(
                 icon: const Icon(Icons.my_location, color: _primary, size: 20),
-                tooltip: 'Refresh GPS Position',
+                tooltip: 'Recenter on live location',
                 onPressed: () {
+                  if (lat != null && lng != null) {
+                    try {
+                      _mapController.move(LatLng(lat, lng), 16.0);
+                    } catch (_) {}
+                  }
                   if (_activeIncident != null || _activeJourney != null) {
                     _syncLocationTracking();
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Refreshing GPS fix...')),
+                    const SnackBar(content: Text('Centered on live position.')),
                   );
                 },
               ),
-            ),
-          ),
-
-          // Live User Marker (Center)
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isStale ? const Color(0xFFD32F2F) : _primary,
-                    border: Border.all(color: Colors.white, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.4),
-                        blurRadius: 12,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.navigation, color: Colors.white, size: 22),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(10),
-                    border: isStale ? Border.all(color: const Color(0xFFD32F2F)) : null,
-                  ),
-                  child: Text(
-                    coordText,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isStale ? const Color(0xFFD32F2F) : _primary,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
 
@@ -591,6 +615,29 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _primary),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ),
+
+          // Coordinates Badge Bottom-Center
+          Positioned(
+            bottom: 14,
+            left: 140,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(12),
+                border: isStale ? Border.all(color: const Color(0xFFD32F2F)) : null,
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+              ),
+              child: Text(
+                coordText,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isStale ? const Color(0xFFD32F2F) : _primary,
                 ),
               ),
             ),
