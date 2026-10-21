@@ -332,7 +332,7 @@ async function runSuite() {
 
         // [4] Duration Validation
         console.log('\n--- [4] Duration Validation ---');
-        const invalidDurations = [0, 7, 20, 45, 90, -10];
+        const invalidDurations = [0, -10, 1500, 'abc'];
         for (const dur of invalidDurations) {
             const res = await apiRequest('POST', '/api/timer', { durationMinutes: dur });
             assert(res.status === 400, `Rejects duration=${dur} with 400`, res.body.message);
@@ -370,7 +370,7 @@ async function runSuite() {
 
         // [8] Timer Extension
         console.log('\n--- [8] Timer Extension ---');
-        const badExtend = await apiRequest('POST', `/api/timer/${timerId}/extend`, { extendMinutes: 45 });
+        const badExtend = await apiRequest('POST', `/api/timer/${timerId}/extend`, { extendMinutes: 0 });
         assert(badExtend.status === 400, 'Rejects invalid extension increment with 400');
 
         const validExtend = await apiRequest('POST', `/api/timer/${timerId}/extend`, {

@@ -37,12 +37,11 @@ const createTimer = async (req, res) => {
     const userId = req.userId;
     const { durationMinutes, latitude, longitude } = req.body;
 
-    const allowedDurations = [5, 15, 30, 60];
     const duration = parseInt(durationMinutes, 10);
 
-    if (!allowedDurations.includes(duration)) {
+    if (isNaN(duration) || duration < 1 || duration > 1440) {
         return res.status(400).json({
-            message: `Invalid duration. Allowed values: ${allowedDurations.join(', ')} minutes.`,
+            message: 'Invalid duration. Duration must be between 1 and 1440 minutes (up to 24 hours).',
         });
     }
 
@@ -217,12 +216,11 @@ const extendTimer = async (req, res) => {
     const { id } = req.params;
     const { extendMinutes, latitude, longitude } = req.body;
 
-    const allowedExtensions = [5, 15, 30, 60];
     const extend = parseInt(extendMinutes, 10);
 
-    if (!allowedExtensions.includes(extend)) {
+    if (isNaN(extend) || extend < 1 || extend > 1440) {
         return res.status(400).json({
-            message: `Invalid extension. Allowed values: ${allowedExtensions.join(', ')} minutes.`,
+            message: 'Invalid extension. Extension must be between 1 and 1440 minutes.',
         });
     }
 

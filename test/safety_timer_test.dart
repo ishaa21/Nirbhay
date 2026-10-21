@@ -136,5 +136,57 @@ void main() {
       // The idle timer visual shows the default selected duration (30 MIN = 30:00)
       expect(find.text('30:00'), findsOneWidget);
     });
+
+    testWidgets('Opening custom timer dialog and setting 45 minutes updates display to 45:00', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SafetyTimerScreen(),
+        ),
+      );
+
+      // Wait for initial load
+      await tester.pump();
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Tap 15 MIN preset
+      final min15 = find.text('15\nMIN');
+      expect(min15, findsOneWidget);
+      await tester.tap(min15);
+      await tester.pump();
+      expect(find.text('15:00'), findsOneWidget);
+
+      // Tap on Custom Duration button
+      final customBtn = find.byKey(const Key('custom_duration_button'));
+      expect(customBtn, findsOneWidget);
+      await tester.tap(customBtn);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Enter 45 into the custom timer input field
+      final inputField = find.byKey(const Key('custom_timer_input'));
+      expect(inputField, findsOneWidget);
+      await tester.enterText(inputField, '45');
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Tap 'Set Duration' button
+      final setBtn = find.byKey(const Key('custom_timer_set_button'));
+      expect(setBtn, findsOneWidget);
+      await tester.tap(setBtn);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Verify custom duration applied to visual timer (45:00) and chip
+      expect(find.text('45:00'), findsOneWidget);
+      expect(find.text('Custom: 45 MIN (Tap to change)'), findsOneWidget);
+    });
   });
 }

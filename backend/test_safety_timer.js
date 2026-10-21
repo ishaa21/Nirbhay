@@ -89,7 +89,7 @@ async function testGetActiveTimer_NoTimer() {
 
 async function testCreateTimer_InvalidDuration() {
     console.log('\n[3] POST /api/timer — invalid duration');
-    const res = await request('POST', '/api/timer', { durationMinutes: 7 }, TEST_TOKEN);
+    const res = await request('POST', '/api/timer', { durationMinutes: 0 }, TEST_TOKEN);
     assert(res.status === 400, 'Returns 400 for invalid duration');
     assert(res.body.message?.includes('Invalid duration'), 'Error message mentions Invalid duration');
 }

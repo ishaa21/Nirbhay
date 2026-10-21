@@ -307,12 +307,19 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
+        backgroundColor: _cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Session Expired', style: TextStyle(fontWeight: FontWeight.bold, color: _primary)),
-        content: const Text('Your login session has expired. Please sign in again to continue managing your Safety Timer.'),
+        content: const Text(
+          'Your login session has expired. Please sign in again to continue managing your Safety Timer.',
+          style: TextStyle(color: _onSurfaceVariant, fontSize: 13.5),
+        ),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _primary),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               Navigator.of(ctx).pop();
               Navigator.of(context).pushAndRemoveUntil(
@@ -320,7 +327,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 (route) => false,
               );
             },
-            child: const Text('Sign In', style: TextStyle(color: Colors.white)),
+            child: const Text('Sign In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -331,6 +338,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: _cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: const [
@@ -356,6 +364,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   void _showExtendSheet() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: _cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -433,12 +442,14 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
         content: Text(body, style: const TextStyle(color: _onSurfaceVariant)),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(foregroundColor: _onSurfaceVariant),
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Go Back'),
+            child: const Text('Go Back', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: confirmColor,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -453,7 +464,15 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   void _showSnack(String msg, Color color) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
@@ -484,76 +503,112 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   Widget build(BuildContext context) {
     final bool warning = _isRunning && _timeLeftSeconds <= 60;
 
-    return Scaffold(
-      backgroundColor: _surface,
-      body: SafeArea(
-        child: _loadingInitial
-            ? const Center(child: CircularProgressIndicator(color: _primary))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 16),
-                    if (warning) ...[
-                      _buildPreExpiryAlertCard(),
-                      const SizedBox(height: 14),
-                    ],
-                    _buildOnboardingCard(),
-                    const SizedBox(height: 20),
-                    _buildTimerVisual(warning: warning),
-                    const SizedBox(height: 28),
-                    if (!_isRunning) ...[
-                      _buildDurationSelector(),
-                      const SizedBox(height: 12),
-                      // Custom duration chip
-                      GestureDetector(
-                        onTap: _showCustomTimerDialog,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
-                                ? _primary.withOpacity(0.09)
-                                : _cardBg,
+    return Theme(
+      data: ThemeData.light().copyWith(
+        scaffoldBackgroundColor: _surface,
+        colorScheme: const ColorScheme.light(
+          primary: _primary,
+          onPrimary: Colors.white,
+          surface: _surface,
+          onSurface: _onSurface,
+          onSurfaceVariant: _onSurfaceVariant,
+          outline: _outlineVariant,
+          error: _error,
+        ),
+        dialogBackgroundColor: _cardBg,
+        textTheme: ThemeData.light().textTheme.apply(
+          bodyColor: _onSurface,
+          displayColor: _primary,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: _surface,
+        body: SafeArea(
+          child: _loadingInitial
+              ? const Center(child: CircularProgressIndicator(color: _primary))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 16),
+                      if (warning) ...[
+                        _buildPreExpiryAlertCard(),
+                        const SizedBox(height: 14),
+                      ],
+                      _buildOnboardingCard(),
+                      const SizedBox(height: 20),
+                      _buildTimerVisual(warning: warning),
+                      const SizedBox(height: 28),
+                      if (!_isRunning) ...[
+                        _buildDurationSelector(),
+                        const SizedBox(height: 12),
+                        // Custom duration chip
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            key: const Key('custom_duration_button'),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
+                            onTap: _showCustomTimerDialog,
+                            child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                            decoration: BoxDecoration(
                               color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
-                                  ? _primary
-                                  : _outlineVariant,
-                              width: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60) ? 2 : 1,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
-                                  ? '$_selectedMinutes\nMIN'
-                                  : 'Custom',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
+                                  ? _primary.withOpacity(0.09)
+                                  : _cardBg,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
                                 color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
                                     ? _primary
-                                    : _onSurfaceVariant,
-                                height: 1.3,
+                                    : _outlineVariant,
+                                width: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60) ? 2 : 1,
                               ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                      ? Icons.check_circle_rounded
+                                      : Icons.tune_rounded,
+                                  size: 18,
+                                  color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                      ? _primary
+                                      : _onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                      ? 'Custom: $_selectedMinutes MIN (Tap to change)'
+                                      : 'Set Custom Duration',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+                                        ? _primary
+                                        : _onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildStartButton(),
-                    ] else ...[
-                      _buildActiveActions(),
+                        _buildStartButton(),
+                      ] else ...[
+                        _buildActiveActions(),
+                      ],
+                      const SizedBox(height: 20),
+                      _buildStatusCard(),
                     ],
-                    const SizedBox(height: 20),
-                    _buildStatusCard(),
-                  ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }
@@ -714,7 +769,8 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   }
 
   Widget _buildTimerVisual({required bool warning}) {
-    final Color ringColor = warning ? _error : (_isRunning ? const Color(0xFF795548) : _primary);
+    final Color progressColor = warning ? _error : (_isRunning ? _successColor : _primary);
+    final Color timerTextColor = warning ? _error : _primary;
 
     return Center(
       child: SizedBox(
@@ -731,7 +787,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: ringColor.withOpacity(_isRunning ? 0.08 : 0.04),
+                  color: progressColor.withOpacity(_isRunning ? 0.10 : 0.04),
                 ),
               ),
             ),
@@ -742,8 +798,8 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               child: CircularProgressIndicator(
                 value: _isRunning ? _progress : (_selectedMinutes > 0 ? 1.0 : 0),
                 strokeWidth: 7,
-                backgroundColor: _outlineVariant.withOpacity(0.25),
-                valueColor: AlwaysStoppedAnimation<Color>(ringColor),
+                backgroundColor: _outlineVariant.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                 strokeCap: StrokeCap.round,
               ),
             ),
@@ -753,8 +809,8 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               children: [
                 Icon(
                   _isRunning ? Icons.timer_rounded : Icons.timer_outlined,
-                  color: ringColor,
-                  size: 30,
+                  color: progressColor,
+                  size: 32,
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -762,9 +818,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                       ? _formatTime(_timeLeftSeconds)
                       : _formatTime(_selectedMinutes * 60),
                   style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    color: ringColor,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w800,
+                    color: timerTextColor,
                     letterSpacing: 2,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -775,9 +831,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                       ? (warning ? '⚡ Expiring soon!' : 'Time remaining')
                       : 'Select duration below',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: warning ? _error : _onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -854,6 +910,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: _primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: _primary.withOpacity(0.85),
+          disabledForegroundColor: Colors.white,
           elevation: 6,
           shadowColor: _primary.withOpacity(0.35),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -863,32 +922,163 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   }
 
   void _showCustomTimerDialog() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: (_selectedMinutes != 5 && _selectedMinutes != 15 && _selectedMinutes != 30 && _selectedMinutes != 60)
+          ? '$_selectedMinutes'
+          : '',
+    );
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Custom Timer'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            hintText: 'Enter minutes (e.g., 45)',
-          ),
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: _cardBg,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.tune_rounded, color: _primary, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Custom Duration',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter timer duration in minutes (1 to 1440 min / 24 hrs):',
+              style: TextStyle(fontSize: 13, color: _onSurfaceVariant, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              key: const Key('custom_timer_input'),
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: _primary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'e.g. 45',
+                hintStyle: TextStyle(color: _onSurfaceVariant.withOpacity(0.5), fontSize: 16),
+                suffixText: 'MIN',
+                suffixStyle: const TextStyle(
+                  color: _primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                filled: true,
+                fillColor: _surface,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _outlineVariant),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _outlineVariant),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Quick presets:',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [10, 20, 45, 90, 120].map((mins) {
+                return InkWell(
+                  onTap: () {
+                    controller.text = mins.toString();
+                    controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: controller.text.length),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _outlineVariant),
+                    ),
+                    child: Text(
+                      '$mins min',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _primary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
           TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            style: TextButton.styleFrom(foregroundColor: _onSurfaceVariant),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            key: const Key('custom_timer_set_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
             onPressed: () {
               final val = int.tryParse(controller.text.trim());
-              if (val != null && val > 0) {
+              if (val != null && val >= 1 && val <= 1440) {
                 setState(() {
                   _selectedMinutes = val;
+                  _timeLeftSeconds = val * 60;
                   _customMode = false;
                 });
-                Navigator.of(context).pop();
+                Navigator.of(dialogCtx).pop();
+                _showSnack('Custom duration set to $val minutes.', _primary);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Please enter a valid duration between 1 and 1440 minutes.',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                    backgroundColor: _error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               }
             },
-            child: const Text('Set'),
+            child: const Text('Set Duration', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ],
       ),
@@ -913,6 +1103,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: _successColor,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: _successColor.withOpacity(0.85),
+              disabledForegroundColor: Colors.white,
               elevation: 6,
               shadowColor: _successColor.withOpacity(0.35),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -927,9 +1120,11 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               child: OutlinedButton.icon(
                 onPressed: _processing ? null : _showExtendSheet,
                 icon: const Icon(Icons.timer_outlined, color: _primary, size: 20),
-                label: const Text('Extend', style: TextStyle(color: _primary, fontWeight: FontWeight.w600)),
+                label: const Text('Extend', style: TextStyle(color: _primary, fontWeight: FontWeight.w700, fontSize: 15)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: _primary),
+                  foregroundColor: _primary,
+                  backgroundColor: _cardBg,
+                  side: const BorderSide(color: _primary, width: 1.5),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -940,9 +1135,11 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               child: OutlinedButton.icon(
                 onPressed: _processing ? null : _handleCancel,
                 icon: const Icon(Icons.cancel_outlined, color: _error, size: 20),
-                label: const Text('Cancel', style: TextStyle(color: _error, fontWeight: FontWeight.w600)),
+                label: const Text('Cancel', style: TextStyle(color: _error, fontWeight: FontWeight.w700, fontSize: 15)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: _error),
+                  foregroundColor: _error,
+                  backgroundColor: _cardBg,
+                  side: const BorderSide(color: _error, width: 1.5),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -1043,7 +1240,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 Expanded(
                   child: Text(
                     'Server-side expiry detection is active. Even if the app closes or your battery dies, the backend watchdog will alert your contacts if you miss the check-in.',
-                    style: TextStyle(fontSize: 11.5, color: _successColor, height: 1.4),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF1B5E20), fontWeight: FontWeight.w600, height: 1.4),
                   ),
                 ),
               ],
@@ -1059,11 +1256,11 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
       children: [
         Icon(icon, color: _onSurfaceVariant, size: 16),
         const SizedBox(width: 8),
-        Text('$label: ', style: const TextStyle(fontSize: 12, color: _onSurfaceVariant)),
+        Text('$label: ', style: const TextStyle(fontSize: 13, color: _onSurfaceVariant, fontWeight: FontWeight.w500)),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _onSurface),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _onSurface),
             overflow: TextOverflow.ellipsis,
           ),
         ),

@@ -139,7 +139,7 @@ class SafetyTimerService {
     try {
       final token = await AuthService().getToken();
       if (token == null || token.isEmpty) {
-        return {'success': false, 'sessionExpired': true, 'active': false, 'message': 'Not authenticated.'};
+        return {'success': false, 'active': false, 'message': 'Not authenticated.'};
       }
 
       final res = await http.get(
