@@ -1,10 +1,13 @@
 package com.ishaa21.nirbhay
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.view.WindowManager
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -25,6 +28,7 @@ class NirbhayShakePlugin(
     companion object {
         const val METHOD_CHANNEL = "com.ishaa21.nirbhay/shake_sos"
         const val EVENT_CHANNEL = "com.ishaa21.nirbhay/shake_events"
+        const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9201
 
         private var eventSink: EventChannel.EventSink? = null
         private var activePluginInstance: NirbhayShakePlugin? = null
@@ -114,12 +118,53 @@ class NirbhayShakePlugin(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "startService" -> {
+                // Ensure notification permission is requested on Android 13+ (API 33+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (ContextCompat.checkSelfPermission(
+                            activity,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            activity,
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            NOTIFICATION_PERMISSION_REQUEST_CODE
+                        )
+                    }
+                }
                 val intent = Intent(activity, ShakeDetectionService::class.java).apply {
                     action = ShakeDetectionService.ACTION_START
                 }
                 ContextCompat.startForegroundService(activity, intent)
                 val prefs = activity.getSharedPreferences(ShakeDetectionService.PREFS_NAME, Context.MODE_PRIVATE)
                 prefs.edit().putBoolean(ShakeDetectionService.KEY_ENABLED, true).apply()
+                result.success(true)
+            }
+            "hasNotificationPermission" -> {
+                val hasPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    ContextCompat.checkSelfPermission(
+                        activity,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                } else {
+                    true
+                }
+                result.success(hasPerm)
+            }
+            "requestNotificationPermission" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (ContextCompat.checkSelfPermission(
+                            activity,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            activity,
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            NOTIFICATION_PERMISSION_REQUEST_CODE
+                        )
+                    }
+                }
                 result.success(true)
             }
             "stopService" -> {

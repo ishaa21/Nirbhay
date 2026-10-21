@@ -207,6 +207,27 @@ class ShakeSosService {
     }
   }
 
+  /// Returns whether notification permission is granted (Android 13+).
+  Future<bool> hasNotificationPermission() async {
+    if (!isAndroid) return true;
+    try {
+      final res = await _methodChannel.invokeMethod<bool>('hasNotificationPermission');
+      return res ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Requests notification permission on Android 13+ (API 33+).
+  Future<void> requestNotificationPermission() async {
+    if (!isAndroid) return;
+    try {
+      await _methodChannel.invokeMethod('requestNotificationPermission');
+    } catch (e) {
+      debugPrint('[ShakeSosService] Failed to request notification permission: $e');
+    }
+  }
+
   /// Opens the system notification settings screen for this app.
   ///
   /// Use this to help the user grant USE_FULL_SCREEN_INTENT on Android 14+

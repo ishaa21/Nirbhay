@@ -718,6 +718,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     activeColor: _primary,
                                     onChanged: (val) async {
                                       setSheetState(() => isLoading = true);
+                                      if (val) {
+                                        await ShakeSosService().requestNotificationPermission();
+                                      }
                                       final ok = val
                                           ? await ShakeSosService().startShakeService()
                                           : await ShakeSosService().stopShakeService();

@@ -205,10 +205,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
               // 4. Primary Journey Actions (Share & Stop)
               _buildPrimaryActions(),
-              const SizedBox(height: 20),
-
-              // 5. Safe Spots En Route
-              _buildSafeSpotsSection(),
               const SizedBox(height: 80),
             ],
           ),
@@ -1073,6 +1069,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     } else if (res['alreadyActive'] == true) {
       // Refresh to load the existing journey
       await _fetchActiveJourney();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('A journey is already active.')),
       );
@@ -1175,165 +1172,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 5. Safe Spots En Route Section
-  // ──────────────────────────────────────────────────────────────────────────
-  Widget _buildSafeSpotsSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.verified_user, color: _primary, size: 20),
-                  SizedBox(width: 6),
-                  Text(
-                    'Safe Spots En Route',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _primary,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _tertiaryFixed,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '3 Nearby',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _onTertiaryFixed),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Pre-vetted emergency shelters with 24/7 security along your active corridor.',
-            style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
-          ),
-          const SizedBox(height: 14),
-
-          // Spot 1: Pink Booth
-          _buildSafeSpotCard(
-            title: 'Pink Police Booth #14',
-            subtitle: 'Barakhamba Crossing • 450m ahead',
-            icon: Icons.verified_user,
-            iconBg: _secondaryContainer,
-            actionIcon: Icons.call,
-            onAction: () async {
-              final url = Uri.parse('tel:112');
-              if (await canLaunchUrl(url)) await launchUrl(url);
-            },
-          ),
-          const SizedBox(height: 10),
-
-          // Spot 2: Pharmacy
-          _buildSafeSpotCard(
-            title: 'Apollo 24/7 Pharmacy',
-            subtitle: 'Well-lit safe sanctuary • 1.1 km',
-            icon: Icons.local_pharmacy,
-            iconBg: _tertiaryFixed,
-            actionIcon: Icons.directions,
-            onAction: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Rerouting to Apollo 24/7 Pharmacy')),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-
-          // Spot 3: CISF Metro Security Kiosk
-          _buildSafeSpotCard(
-            title: 'CISF Metro Security Kiosk',
-            subtitle: 'Gate 3, AIIMS station • 3.4 km',
-            icon: Icons.subway,
-            iconBg: _secondaryContainer,
-            actionIcon: Icons.notifications_active,
-            onAction: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Station Marshals notified of your arrival')),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSafeSpotCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconBg,
-    required IconData actionIcon,
-    required VoidCallback onAction,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F3F4),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: _primary, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _primary),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(fontSize: 11, color: _onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: onAction,
-            style: IconButton.styleFrom(
-              backgroundColor: _secondaryContainer,
-              foregroundColor: _primary,
-            ),
-            icon: Icon(actionIcon, size: 18),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
   // Safety PIN Dialog (End Journey)
   // ──────────────────────────────────────────────────────────────────────────
   void _showSafetyPinDialog() {
@@ -1348,7 +1186,12 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           children: const [
             Icon(Icons.lock, color: _primary),
             SizedBox(width: 8),
-            Text('End Journey Safely?', style: TextStyle(color: _primary, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'End Journey Safely?',
+                style: TextStyle(color: _primary, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
         content: Column(

@@ -53,6 +53,7 @@ class ShakeDetectionService : Service() {
         const val CHANNEL_COUNTDOWN_ID = "nirbhay_sos_countdown_channel"
         const val NOTIFICATION_MONITOR_ID = 9101
         const val NOTIFICATION_COUNTDOWN_ID = 9102
+        const val NOTIFICATION_TRIGGERED_ID = 9103
 
         const val COUNTDOWN_DURATION_MS = 15000L
 
@@ -290,6 +291,9 @@ class ShakeDetectionService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_COUNTDOWN_ID)
 
+        // Show immediate notification confirming SOS activation
+        showSosTriggeredNotification()
+
         // Trigger SOS workflow via Flutter event channel (if Flutter is active)
         NirbhayShakePlugin.onCountdownExpired()
 
@@ -368,6 +372,7 @@ class ShakeDetectionService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setOngoing(true)
             .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
             // Full-screen intent attempts to show ShakeCountdownActivity on lock screen.
             // On Android 14+ this requires MANAGE_MEDIA_PROJECTION or USE_FULL_SCREEN_INTENT
             // to be granted by the user. If not granted, the notification is displayed as
@@ -384,6 +389,39 @@ class ShakeDetectionService : Service() {
             .build()
 
         notificationManager.notify(NOTIFICATION_COUNTDOWN_ID, notification)
+    }
+
+    private fun showSosTriggeredNotification() {
+        try {
+            val notificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val openAppIntent = Intent(this, MainActivity::class.java).apply {
+                action = ACTION_TRIGGER_SOS_NOW
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                3,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+            val notification = NotificationCompat.Builder(this, CHANNEL_COUNTDOWN_ID)
+                .setContentTitle("🚨 EMERGENCY SOS TRIGGERED")
+                .setContentText("Emergency contacts & services have been alerted with your live location.")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+
+            notificationManager.notify(NOTIFICATION_TRIGGERED_ID, notification)
+        } catch (e: Exception) {
+            android.util.Log.e("ShakeService", "Could not show SOS triggered notification: ${e.message}")
+        }
     }
 
     private fun updateCountdownNotification(remainingSeconds: Int) {
