@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import '../models/community_post_model.dart';
+import '../services/community_service.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -9,102 +12,435 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen>
     with SingleTickerProviderStateMixin {
-  // ── Color tokens ───────────────────────────────────────────────────
+  // ── Color tokens ────────────────────────────────────────────────────────────
   static const Color _primary = Color(0xFF301427);
   static const Color _surface = Color(0xFFFCF8F9);
   static const Color _cardBg = Color(0xFFFFFFFF);
+  static const Color _onSurface = Color(0xFF1B1B1C);
   static const Color _onSurfaceVariant = Color(0xFF4E4449);
-  static const Color _primaryFixed = Color(0xFFFFD8ED);
   static const Color _secondaryContainer = Color(0xFFF2D9E4);
   static const Color _onSecondaryContainer = Color(0xFF705D67);
-  static const Color _errorContainer = Color(0xFFFFDAD6);
-  static const Color _onErrorContainer = Color(0xFF93000A);
-  static const Color _surfaceContainerHighest = Color(0xFFE4E2E3);
   static const Color _cardBorder = Color(0x1A301427);
 
-  // ── Alert data ─────────────────────────────────────────────────────
-  late List<_AlertData> _alerts;
+  // ── State variables ─────────────────────────────────────────────────────────
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+
+  List<CommunityPost> _posts = [];
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  String? _errorMessage;
+
+  int _currentPage = 1;
+  bool _hasMore = false;
+
+  // Filter & Sort State
+  String _selectedCategory = 'ALL';
+  String _selectedSort = 'latest'; // 'latest', 'nearby', 'most_upvoted'
+  bool _isMyPostsView = false;
+
+  Position? _currentPosition;
+  bool _isLocating = false;
 
   @override
   void initState() {
     super.initState();
-    _alerts = [
-      _AlertData(
-        icon: Icons.electric_bolt_rounded,
-        iconBg: _primaryFixed,
-        iconColor: _primary,
-        title: 'Street Light Malfunction',
-        location: 'Near 4th Street Crossing',
-        timeAgo: '2 mins ago',
-        description:
-            'Area is very dark, visibility less than 5 meters. Recommend taking the alternate route via 5th Ave.',
-        author: 'By Rahul M.',
-        verifiedCount: 12,
-        isVerifiedByMe: false,
-        comments: [
-          _Comment(author: 'Priya S.', text: 'Confirmed – walked past 10 mins ago, very unsafe.', timeAgo: '1 min ago'),
-          _Comment(author: 'Dev K.', text: 'Reported to municipal corp already.', timeAgo: '30 secs ago'),
-        ],
-        ratingTotal: 14,
-        ratingCount: 4,
-      ),
-      _AlertData(
-        icon: Icons.groups_rounded,
-        iconBg: _secondaryContainer,
-        iconColor: _onSecondaryContainer,
-        title: 'Crowd Update',
-        location: 'Grand Central Entrance',
-        timeAgo: '15 mins ago',
-        description:
-            'Unexpectedly large gathering near the North exit. Police presence noted, but movement is very slow.',
-        author: 'By Sarah K.',
-        verifiedCount: 45,
-        isVerifiedByMe: false,
-        comments: [
-          _Comment(author: 'Arjun T.', text: 'Still crowded as of 5 mins ago.', timeAgo: '3 mins ago'),
-        ],
-        ratingTotal: 9,
-        ratingCount: 3,
-      ),
-      _AlertData(
-        icon: Icons.visibility_rounded,
-        iconBg: _errorContainer,
-        iconColor: _onErrorContainer,
-        title: 'Suspicious Activity',
-        location: 'Rear Alley - Market St.',
-        timeAgo: '28 mins ago',
-        description:
-            'Three individuals loitering near residential gates. Reported to local guard. Avoid the alleyway.',
-        author: 'By Anonymous',
-        verifiedCount: 8,
-        isVerifiedByMe: false,
-        comments: [],
-        ratingTotal: 12,
-        ratingCount: 3,
-      ),
-    ];
+    _fetchFeed(resetPage: true);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore && !_isLoading) {
+        _loadMorePosts();
+      }
+    }
+  }
+
+  // ── Data Fetching ──────────────────────────────────────────────────────────
+
+  Future<void> _fetchFeed({bool resetPage = false}) async {
+    if (resetPage) {
+      setState(() {
+        _currentPage = 1;
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      Map<String, dynamic> res;
+
+      if (_isMyPostsView) {
+        res = await CommunityService().getMyPosts(page: _currentPage, limit: 15);
+      } else {
+        res = await CommunityService().getPosts(
+          page: _currentPage,
+          limit: 15,
+          category: _selectedCategory,
+          sort: _selectedSort,
+          latitude: _currentPosition?.latitude,
+          longitude: _currentPosition?.longitude,
+        );
+      }
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        final List<CommunityPost> loaded = res['posts'] as List<CommunityPost>? ?? [];
+        setState(() {
+          _posts = loaded;
+          _hasMore = res['hasMore'] as bool? ?? false;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = res['message'] ?? 'Failed to load safety alerts.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Connection error. Please pull to refresh.';
+      });
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    setState(() => _isLoadingMore = true);
+    final nextPage = _currentPage + 1;
+
+    try {
+      Map<String, dynamic> res;
+      if (_isMyPostsView) {
+        res = await CommunityService().getMyPosts(page: nextPage, limit: 15);
+      } else {
+        res = await CommunityService().getPosts(
+          page: nextPage,
+          limit: 15,
+          category: _selectedCategory,
+          sort: _selectedSort,
+          latitude: _currentPosition?.latitude,
+          longitude: _currentPosition?.longitude,
+        );
+      }
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        final List<CommunityPost> loaded = res['posts'] as List<CommunityPost>? ?? [];
+        setState(() {
+          _currentPage = nextPage;
+          _posts.addAll(loaded);
+          _hasMore = res['hasMore'] as bool? ?? false;
+          _isLoadingMore = false;
+        });
+      } else {
+        setState(() => _isLoadingMore = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _requestNearbyLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enable device location to view nearby alerts.')),
+        );
+        setState(() => _isLocating = false);
+        return;
+      }
+
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+        if (perm == LocationPermission.denied) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission is required to sort alerts by proximity.')),
+          );
+          setState(() => _isLocating = false);
+          return;
+        }
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = pos;
+        _selectedSort = 'nearby';
+        _isLocating = false;
+      });
+      _fetchFeed(resetPage: true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not obtain location: $e')),
+      );
+    }
+  }
+
+  // ── Upvote Handler ─────────────────────────────────────────────────────────
+
+  Future<void> _handleToggleUpvote(CommunityPost post) async {
+    final oldUpvoted = post.hasUpvoted;
+    final oldCount = post.upvotesCount;
+    final newUpvoted = !oldUpvoted;
+    final newCount = newUpvoted ? oldCount + 1 : (oldCount > 0 ? oldCount - 1 : 0);
+
+    // Optimistic UI update
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == post.id);
+      if (index != -1) {
+        _posts[index] = post.copyWith(
+          hasUpvoted: newUpvoted,
+          upvotesCount: newCount,
+        );
+      }
+    });
+
+    final res = await CommunityService().toggleUpvote(post.id);
+    if (!mounted) return;
+
+    if (res['success'] != true) {
+      // Revert optimistic update on failure
+      setState(() {
+        final index = _posts.indexWhere((p) => p.id == post.id);
+        if (index != -1) {
+          _posts[index] = post.copyWith(
+            hasUpvoted: oldUpvoted,
+            upvotesCount: oldCount,
+          );
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Could not update vote.')),
+      );
+    } else {
+      // Confirm with exact server counts
+      setState(() {
+        final index = _posts.indexWhere((p) => p.id == post.id);
+        if (index != -1) {
+          _posts[index] = _posts[index].copyWith(
+            hasUpvoted: res['upvoted'] as bool? ?? newUpvoted,
+            upvotesCount: res['upvotesCount'] as int? ?? newCount,
+          );
+        }
+      });
+    }
+  }
+
+  // ── Build UI ───────────────────────────────────────────────────────────────
+
+  @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _surface,
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: _primary,
+          onRefresh: () => _fetchFeed(resetPage: true),
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            slivers: [
+              // Header & Action Bar
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 16),
+                      _buildReportIncidentCTA(),
+                      const SizedBox(height: 16),
+                      _buildViewSwitcher(),
+                      if (!_isMyPostsView) ...[
+                        const SizedBox(height: 12),
+                        _buildSortFilterRow(),
+                        const SizedBox(height: 12),
+                        _buildCategoryFilterCarousel(),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // Post Feed List
+              if (_isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: CircularProgressIndicator(color: _primary),
+                  ),
+                )
+              else if (_errorMessage != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildErrorState(),
+                )
+              else if (_posts.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(),
+                )
+              else ...[
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _buildPostCard(_posts[index]),
+                        );
+                      },
+                      childCount: _posts.length,
+                    ),
+                  ),
+                ),
+                if (_isLoadingMore)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showCreatePostSheet,
+        backgroundColor: _primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.campaign_outlined),
+        label: const Text('Post Report', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  // ── Header & Navigation ────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Community Hub',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: _primary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Neighborhood safety alerts & verified updates',
+              style: TextStyle(fontSize: 13, color: _onSurfaceVariant),
+            ),
+          ],
+        ),
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: () => _fetchFeed(resetPage: true),
+          icon: const Icon(Icons.refresh_rounded, color: _primary),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReportIncidentCTA() {
     return Container(
-      color: _surface,
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 768),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF301427), Color(0xFF4A203C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: _primary.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _showCreatePostSheet,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
               children: [
-                _buildHeroHeader(),
-                const SizedBox(height: 24),
-                _buildReportIncidentCTA(),
-                const SizedBox(height: 32),
-                _buildAreaSafetyReports(),
-                const SizedBox(height: 32),
-                _buildRecentAlertsFeed(),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add_alert_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Report a Safety Concern',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Alert people nearby about harassment, hazards, or unsafe spots.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFFE2D0DC)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
               ],
             ),
           ),
@@ -113,60 +449,159 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Hero Header
-  // ─────────────────────────────────────────────────────────────────
-  Widget _buildHeroHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          'Community Hub',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: _primary,
-            height: 1.2,
+  Widget _buildViewSwitcher() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: _secondaryContainer.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (_isMyPostsView) {
+                  setState(() => _isMyPostsView = false);
+                  _fetchFeed(resetPage: true);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: !_isMyPostsView ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: !_isMyPostsView
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Community Alerts',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: !_isMyPostsView ? _primary : _onSecondaryContainer,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Real-time safety insights from people nearby. Stay informed, stay safe together.',
-          style: TextStyle(
-            fontSize: 16,
-            color: _onSurfaceVariant,
-            height: 1.4,
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (!_isMyPostsView) {
+                  setState(() => _isMyPostsView = true);
+                  _fetchFeed(resetPage: true);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: _isMyPostsView ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: _isMyPostsView
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'My Reports',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: _isMyPostsView ? _primary : _onSecondaryContainer,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Report Incident CTA
-  // ─────────────────────────────────────────────────────────────────
-  Widget _buildReportIncidentCTA() {
-    return SizedBox(
-      height: 60,
-      child: ElevatedButton(
-        onPressed: _showReportIncidentDialog,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _primary,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          shadowColor: _primary.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+  Widget _buildSortFilterRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildSortChip(
+            label: 'Latest',
+            icon: Icons.access_time_rounded,
+            isSelected: _selectedSort == 'latest',
+            onTap: () {
+              if (_selectedSort != 'latest') {
+                setState(() => _selectedSort = 'latest');
+                _fetchFeed(resetPage: true);
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+          _buildSortChip(
+            label: _isLocating ? 'Locating...' : 'Nearby',
+            icon: Icons.near_me_outlined,
+            isSelected: _selectedSort == 'nearby',
+            onTap: () {
+              if (_currentPosition != null) {
+                if (_selectedSort != 'nearby') {
+                  setState(() => _selectedSort = 'nearby');
+                  _fetchFeed(resetPage: true);
+                }
+              } else {
+                _requestNearbyLocation();
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+          _buildSortChip(
+            label: 'Most Upvoted',
+            icon: Icons.thumb_up_alt_outlined,
+            isSelected: _selectedSort == 'most_upvoted',
+            onTap: () {
+              if (_selectedSort != 'most_upvoted') {
+                setState(() => _selectedSort = 'most_upvoted');
+                _fetchFeed(resetPage: true);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSortChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? _primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? _primary : _cardBorder,
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.campaign_rounded, size: 26),
-            SizedBox(width: 12),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? Colors.white : _onSurfaceVariant),
+            const SizedBox(width: 6),
             Text(
-              'Report Incident',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : _onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -174,247 +609,449 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Area Safety Reports
-  // ─────────────────────────────────────────────────────────────────
-  Widget _buildAreaSafetyReports() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Area Safety Reports',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: _primary,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Opening interactive safety heatmap...'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text(
-                'View Map',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _primary,
+  Widget _buildCategoryFilterCarousel() {
+    final categories = [
+      {'key': 'ALL', 'label': 'All', 'icon': Icons.apps_rounded},
+      {'key': 'SUSPICIOUS_ACTIVITY', 'label': 'Suspicious Activity', 'icon': Icons.visibility_outlined},
+      {'key': 'HARASSMENT', 'label': 'Harassment', 'icon': Icons.shield_outlined},
+      {'key': 'UNSAFE_AREA', 'label': 'Unsafe Area', 'icon': Icons.warning_amber_rounded},
+      {'key': 'THEFT', 'label': 'Theft', 'icon': Icons.lock_outline},
+      {'key': 'ROAD_SAFETY', 'label': 'Road Safety', 'icon': Icons.traffic_outlined},
+      {'key': 'LOST_PERSON', 'label': 'Lost Person', 'icon': Icons.person_search_outlined},
+      {'key': 'HELPFUL_INFO', 'label': 'Helpful Info', 'icon': Icons.info_outline},
+      {'key': 'OTHER', 'label': 'Other', 'icon': Icons.category_outlined},
+    ];
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          final isSelected = _selectedCategory == cat['key'];
+          return InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () {
+              if (_selectedCategory != cat['key']) {
+                setState(() => _selectedCategory = cat['key'] as String);
+                _fetchFeed(resetPage: true);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? _secondaryContainer : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isSelected ? _primary.withOpacity(0.5) : _cardBorder,
                 ),
               ),
+              child: Row(
+                children: [
+                  Icon(
+                    cat['icon'] as IconData,
+                    size: 15,
+                    color: isSelected ? _primary : _onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    cat['label'] as String,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? _primary : _onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 165,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            children: [
-              _buildAreaReportCard(
-                title: 'Central Park',
-                lastUpdated: 'Last updated 12m ago',
-                riskLevel: 'High Risk',
-                riskBg: _errorContainer,
-                riskTextColor: _onErrorContainer,
-                mapUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuASMI1rxXYZqKiVRFhTqWxKK9p-YIR3KimYIkPbHTd2PERFvCeEP8MMh8gr-dAW7rNSqGDTcyD-dzBKEjejor_aQx-P3YVOeIS366r6uEjcKeLwb_447IA5PkGqQ9pla2RBb-taUTlTcsQdYK5tv0AanxqHCWrBUMQRPSnU-JiGQ1_egp4BDWqlPlYkV91fqaNUPhwOkig1IfWqwdFFWq64xkeNYScPyS1lBVJoSZEsN2TubReSQNlFE4yiUp9EEeGlI2Y26TaZ1sTu',
-              ),
-              const SizedBox(width: 16),
-              _buildAreaReportCard(
-                title: 'Metro Plaza',
-                lastUpdated: 'Last updated 45m ago',
-                riskLevel: 'Moderate',
-                riskBg: _secondaryContainer,
-                riskTextColor: _onSecondaryContainer,
-                mapUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuASJiFpSu0VmkrvzKwkTIPmtCfJk_YebPG9D6Hf9eDGtLPXli70AiAfGfpKjwv4wsZKlCDmOqde-XHZAdfNCnraJJRUF-6-ojawcot7Gn4vsByJkUEdpMBDIknHMbLsAXqiE8TLxzvZ5yJwxPbb1bUSeZ7_VD2wnQV3JLiIxk7OCUPtw4xz9K9Tp-bDznZ6rBot_TA1c6G1aKh5TzQ3gOIKA5l7109mgrXXvPIKRkYCWAfOBkCrCaNDRMmRH9q0qnNJIlnPKhjDgGng',
-              ),
-              const SizedBox(width: 16),
-              _buildAreaReportCard(
-                title: 'North Avenue',
-                lastUpdated: 'Last updated 1h ago',
-                riskLevel: 'Low Risk',
-                riskBg: _surfaceContainerHighest,
-                riskTextColor: _onSurfaceVariant,
-                mapUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDdhsydvEakB5r-GqLizrORx9wdpbCKyKFXBJz91P_i-f8un0lz6YWdG9PFAiC0Clb65bVpdpgJHNvD9egq1TehM_ODWCKcnq-nh5nXQi_ZAdGqqEm3WyvIwUb45RZCUtc7KH1xINvLlNUzOrHjFwC7-2bb-t84qqsfy-xcBpfjmSpJRcwO64AUzmBjKsMRbQ_IJyMBcAd0Pse3lSHWvjaMAZyMkRIffI7HT61uW-auDkChYkcJE78chlUF8TPQblEUmLG10hrNXxHr',
-              ),
-            ],
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildAreaReportCard({
-    required String title,
-    required String lastUpdated,
-    required String riskLevel,
-    required Color riskBg,
-    required Color riskTextColor,
-    required String mapUrl,
-  }) {
+  // ── Post Card ──────────────────────────────────────────────────────────────
+
+  Widget _buildPostCard(CommunityPost post) {
+    final catColor = post.category.color;
+
     return Container(
-      width: 280,
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _cardBorder),
-        boxShadow: const [
-          BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w600, color: _primary)),
-                  const SizedBox(height: 2),
-                  Text(lastUpdated,
-                      style: const TextStyle(fontSize: 11, color: _onSurfaceVariant)),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _openPostDetailsModal(post),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Meta Row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: catColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(post.category.icon, size: 13, color: catColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            post.category.label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: catColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      _formatRelativeTime(post.createdAt),
+                      style: const TextStyle(fontSize: 11, color: _onSurfaceVariant),
+                    ),
+                    const SizedBox(width: 4),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, size: 18, color: _onSurfaceVariant),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onSelected: (val) {
+                        if (val == 'report') {
+                          _showReportPostDialog(post.id);
+                        } else if (val == 'edit') {
+                          _showEditPostSheet(post);
+                        } else if (val == 'delete') {
+                          _confirmDeletePost(post.id);
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        if (post.isOwner) ...[
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 18, color: _primary),
+                                SizedBox(width: 8),
+                                Text('Edit Report'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 18, color: Color(0xFFBA1A1A)),
+                                SizedBox(width: 8),
+                                Text('Delete Report', style: TextStyle(color: Color(0xFFBA1A1A))),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          const PopupMenuItem(
+                            value: 'report',
+                            child: Row(
+                              children: [
+                                Icon(Icons.flag_outlined, size: 18, color: Color(0xFFBA1A1A)),
+                                SizedBox(width: 8),
+                                Text('Report Inappropriate'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Post Title
+                Text(
+                  post.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _primary,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                // Post Description
+                Text(
+                  post.description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _onSurface,
+                    height: 1.4,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+
+                // Location Badge (if coarse location was attached)
+                if (post.locationName != null || post.distanceKm != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 14, color: _onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          post.locationName != null && post.distanceKm != null
+                              ? '${post.locationName} (${post.distanceKm!.toStringAsFixed(1)} km away)'
+                              : (post.locationName ?? '${post.distanceKm!.toStringAsFixed(1)} km away'),
+                          style: const TextStyle(fontSize: 11, color: _onSurfaceVariant),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                 ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                    color: riskBg, borderRadius: BorderRadius.circular(30)),
-                child: Text(riskLevel,
-                    style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600, color: riskTextColor)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: double.infinity,
-                color: _secondaryContainer.withOpacity(0.3),
-                child: Image.network(
-                  mapUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: const Color(0xFFEFE9EB),
-                      child: Center(
+
+                const Divider(height: 1, color: _cardBorder),
+                const SizedBox(height: 8),
+
+                // Footer Row: Author, Upvote, Comments
+                Row(
+                  children: [
+                    const Icon(Icons.person_pin_circle_outlined, size: 14, color: _onSecondaryContainer),
+                    const SizedBox(width: 4),
+                    Text(
+                      post.authorName,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _onSecondaryContainer),
+                    ),
+                    const Spacer(),
+                    // Upvote button
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _handleToggleUpvote(post),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.map, size: 18, color: _primary),
-                            SizedBox(width: 6),
-                            Text('Map Preview',
-                                style: TextStyle(fontSize: 12, color: _onSurfaceVariant)),
+                          children: [
+                            Icon(
+                              post.hasUpvoted ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
+                              size: 16,
+                              color: post.hasUpvoted ? _primary : _onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${post.upvotesCount}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: post.hasUpvoted ? FontWeight.bold : FontWeight.normal,
+                                color: post.hasUpvoted ? _primary : _onSurfaceVariant,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 12),
+                    // Comments button
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _openPostDetailsModal(post),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.mode_comment_outlined, size: 16, color: _onSurfaceVariant),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${post.commentsCount}',
+                              style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Modals & Dialogs ───────────────────────────────────────────────────────
+
+  void _openPostDetailsModal(CommunityPost post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PostDetailsSheet(
+        initialPost: post,
+        onPostUpdated: (updated) {
+          setState(() {
+            final idx = _posts.indexWhere((p) => p.id == updated.id);
+            if (idx != -1) _posts[idx] = updated;
+          });
+        },
+        onPostDeleted: (deletedId) {
+          setState(() {
+            _posts.removeWhere((p) => p.id == deletedId);
+          });
+        },
+      ),
+    );
+  }
+
+  void _showCreatePostSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CreatePostSheet(
+        onPostCreated: (newPost) {
+          setState(() {
+            _posts.insert(0, newPost);
+          });
+        },
+      ),
+    );
+  }
+
+  void _showEditPostSheet(CommunityPost post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _EditPostSheet(
+        post: post,
+        onPostUpdated: (updated) {
+          setState(() {
+            final idx = _posts.indexWhere((p) => p.id == updated.id);
+            if (idx != -1) _posts[idx] = updated;
+          });
+        },
+      ),
+    );
+  }
+
+  void _confirmDeletePost(String postId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Safety Report?'),
+        content: const Text('Are you sure you want to remove this report from the community feed?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFBA1A1A)),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final res = await CommunityService().deletePost(postId);
+              if (!mounted) return;
+              if (res['success'] == true) {
+                setState(() => _posts.removeWhere((p) => p.id == postId));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Report deleted successfully.')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(res['message'] ?? 'Failed to delete report.')),
+                );
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Recent Alerts Feed
-  // ─────────────────────────────────────────────────────────────────
-  Widget _buildRecentAlertsFeed() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Recent Alerts',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: _primary),
-        ),
-        const SizedBox(height: 16),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _alerts.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            return _AlertCard(
-              key: ValueKey(_alerts[index].title + index.toString()),
-              alert: _alerts[index],
-              onStateChanged: () => setState(() {}),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  //  Report Incident Dialog
-  // ─────────────────────────────────────────────────────────────────
-  void _showReportIncidentDialog() {
-    final titleController = TextEditingController();
-    final locationController = TextEditingController();
-    final descController = TextEditingController();
+  void _showReportPostDialog(String postId) {
+    String selectedReason = 'INACCURATE';
+    final detailsController = TextEditingController();
+    final scaffold = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: const [
-              Icon(Icons.campaign_rounded, color: _primary),
-              SizedBox(width: 8),
-              Text('Report Incident',
-                  style: TextStyle(color: _primary, fontWeight: FontWeight.bold)),
-            ],
-          ),
+          title: const Text('Report Inappropriate Content', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Incident Type / Title',
-                    hintText: 'e.g. Broken Streetlight, Crowd',
-                    border: OutlineInputBorder(),
-                  ),
+                const Text(
+                  'Help keep Nirbhay reliable and safe. Select the primary reason for reporting this post:',
+                  style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: locationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Location',
-                    hintText: 'e.g. 5th Avenue Crossing',
-                    border: OutlineInputBorder(),
-                  ),
+                RadioListTile<String>(
+                  title: const Text('Inaccurate or False Info', style: TextStyle(fontSize: 13)),
+                  value: 'INACCURATE',
+                  groupValue: selectedReason,
+                  activeColor: _primary,
+                  onChanged: (val) => setDialogState(() => selectedReason = val!),
                 ),
-                const SizedBox(height: 12),
+                RadioListTile<String>(
+                  title: const Text('Harassment or Abusive', style: TextStyle(fontSize: 13)),
+                  value: 'ABUSIVE',
+                  groupValue: selectedReason,
+                  activeColor: _primary,
+                  onChanged: (val) => setDialogState(() => selectedReason = val!),
+                ),
+                RadioListTile<String>(
+                  title: const Text('Spam or Advertising', style: TextStyle(fontSize: 13)),
+                  value: 'SPAM',
+                  groupValue: selectedReason,
+                  activeColor: _primary,
+                  onChanged: (val) => setDialogState(() => selectedReason = val!),
+                ),
+                RadioListTile<String>(
+                  title: const Text('Dangerous or Incitement', style: TextStyle(fontSize: 13)),
+                  value: 'DANGEROUS',
+                  groupValue: selectedReason,
+                  activeColor: _primary,
+                  onChanged: (val) => setDialogState(() => selectedReason = val!),
+                ),
+                RadioListTile<String>(
+                  title: const Text('Doxxing / Personal Phone Numbers', style: TextStyle(fontSize: 13)),
+                  value: 'DOXXING',
+                  groupValue: selectedReason,
+                  activeColor: _primary,
+                  onChanged: (val) => setDialogState(() => selectedReason = val!),
+                ),
+                const SizedBox(height: 8),
                 TextField(
-                  controller: descController,
-                  maxLines: 3,
+                  controller: detailsController,
+                  maxLines: 2,
                   decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Provide safety details for neighbors...',
+                    hintText: 'Additional details (optional)...',
+                    hintStyle: TextStyle(fontSize: 12),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -423,85 +1060,144 @@ class _CommunityScreenState extends State<CommunityScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(ctx),
               child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () {
-                if (titleController.text.isNotEmpty) {
-                  setState(() {
-                    _alerts.insert(
-                      0,
-                      _AlertData(
-                        icon: Icons.report_problem_rounded,
-                        iconBg: _secondaryContainer,
-                        iconColor: _primary,
-                        title: titleController.text,
-                        location: locationController.text.isEmpty
-                            ? 'Nearby Location'
-                            : locationController.text,
-                        timeAgo: 'Just now',
-                        description: descController.text.isEmpty
-                            ? 'No description provided.'
-                            : descController.text,
-                        author: 'By You',
-                        verifiedCount: 1,
-                        isVerifiedByMe: true,
-                        comments: [],
-                        ratingTotal: 0,
-                        ratingCount: 0,
-                      ),
-                    );
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Incident reported successfully! Thank you for keeping the community safe.'),
-                      backgroundColor: _primary,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFBA1A1A)),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final res = await CommunityService().reportPost(
+                  postId,
+                  reason: selectedReason,
+                  details: detailsController.text.trim(),
+                );
+                scaffold.showSnackBar(
+                  SnackBar(content: Text(res['message'] ?? 'Report received.')),
+                );
               },
               child: const Text('Submit Report', style: TextStyle(color: Colors.white)),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
+  }
+
+  // ── Empty & Error States ───────────────────────────────────────────────────
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: _secondaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.shield_outlined, size: 36, color: _primary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _isMyPostsView ? 'No Reports Yet' : 'No Alerts in this Category',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _isMyPostsView
+                  ? 'Reports you share about local safety and road hazards will appear here.'
+                  : 'Be the first in your area to share a safety notice or helpful community tip.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: _onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _showCreatePostSheet,
+              style: ElevatedButton.styleFrom(backgroundColor: _primary),
+              icon: const Icon(Icons.add, color: Colors.white, size: 18),
+              label: const Text('Post Safety Report', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFFBA1A1A)),
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage ?? 'Failed to load safety alerts.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: _onSurface),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _fetchFeed(resetPage: true),
+              style: ElevatedButton.styleFrom(backgroundColor: _primary),
+              icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
+              label: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatRelativeTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  Alert Card Widget (stateful to manage local expand/comment state)
-// ─────────────────────────────────────────────────────────────────
-class _AlertCard extends StatefulWidget {
-  final _AlertData alert;
-  final VoidCallback onStateChanged;
+// ─────────────────────────────────────────────────────────────────────────────
+// Post Details & Comments Bottom Sheet
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const _AlertCard({super.key, required this.alert, required this.onStateChanged});
+class _PostDetailsSheet extends StatefulWidget {
+  final CommunityPost initialPost;
+  final ValueChanged<CommunityPost> onPostUpdated;
+  final ValueChanged<String> onPostDeleted;
+
+  const _PostDetailsSheet({
+    required this.initialPost,
+    required this.onPostUpdated,
+    required this.onPostDeleted,
+  });
 
   @override
-  State<_AlertCard> createState() => _AlertCardState();
+  State<_PostDetailsSheet> createState() => _PostDetailsSheetState();
 }
 
-class _AlertCardState extends State<_AlertCard> {
-  static const Color _primary = Color(0xFF301427);
-  static const Color _surface = Color(0xFFFCF8F9);
-  static const Color _onSurface = Color(0xFF1B1B1C);
-  static const Color _onSurfaceVariant = Color(0xFF4E4449);
-  static const Color _surfaceContainerHighest = Color(0xFFE4E2E3);
-  static const Color _cardBorder = Color(0x1A301427);
-  static const Color _starActive = Color(0xFFD4A017);
-  static const Color _starInactive = Color(0xFFDDD5D8);
-
-  bool _showComments = false;
+class _PostDetailsSheetState extends State<_PostDetailsSheet> {
+  late CommunityPost _post;
   final TextEditingController _commentController = TextEditingController();
+  bool _isPostingComment = false;
+  List<CommunityComment> _comments = [];
+  bool _isLoadingComments = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _post = widget.initialPost;
+    _comments = List.from(widget.initialPost.comments);
+    _loadComments();
+  }
 
   @override
   void dispose() {
@@ -509,659 +1205,620 @@ class _AlertCardState extends State<_AlertCard> {
     super.dispose();
   }
 
-  double get _avgRating =>
-      widget.alert.ratingCount == 0 ? 0 : widget.alert.ratingTotal / widget.alert.ratingCount;
-
-  void _submitComment() {
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      widget.alert.comments.add(
-        _Comment(author: 'You', text: text, timeAgo: 'Just now'),
-      );
-      _commentController.clear();
-    });
-    widget.onStateChanged();
+  Future<void> _loadComments() async {
+    final res = await CommunityService().getComments(_post.id);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      setState(() {
+        _comments = res['comments'] as List<CommunityComment>? ?? [];
+        _isLoadingComments = false;
+      });
+    } else {
+      setState(() => _isLoadingComments = false);
+    }
   }
 
-  // ── Safety threshold: BOTH avg AND rater count required ────────────
-  //
-  // Tier          | Min avg | Min raters | Logic
-  // ────────────  | ─────── | ─────────── | ──────────────────────────────
-  // Low Concern   | ≥ 1.0   | ≥ 3         | Needs a few people to confirm
-  // Moderate Risk | ≥ 2.0   | ≥ 5         | Meaningful pattern forming
-  // Unsafe        | ≥ 3.0   | ≥ 8         | Enough voices to be credible
-  // Highly Unsafe | ≥ 3.8   | ≥ 12        | Strong community signal
-  // Critical      | ≥ 4.5   | ≥ 20        | Must be widely confirmed
-  //
-  // If avg qualifies for a higher tier but count is too low, the badge
-  // stays at the tier below and shows a "Need X more ratings" hint.
-  Map<String, dynamic> _getSafetyLevel(double avg, int count) {
-    if (count == 0 || avg == 0) {
-      return {
-        'label': 'Unrated',
-        'sublabel': null,
-        'bg': const Color(0xFFEEEEEE),
-        'textColor': const Color(0xFF757575),
-        'icon': Icons.help_outline_rounded,
-      };
-    }
+  Future<void> _submitComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
 
-    if (avg >= 4.5) {
-      if (count >= 20) {
-        return {
-          'label': 'Critical — Avoid Area',
-          'sublabel': null,
-          'bg': const Color(0xFF93000A),
-          'textColor': Colors.white,
-          'icon': Icons.crisis_alert_rounded,
-        };
-      }
-      final need = 20 - count;
-      return {
-        'label': 'Highly Unsafe',
-        'sublabel': 'Need $need more rating${need == 1 ? '' : 's'} to confirm Critical',
-        'bg': const Color(0xFFFFDAD6),
-        'textColor': const Color(0xFF93000A),
-        'icon': Icons.dangerous_rounded,
-      };
-    }
+    setState(() => _isPostingComment = true);
+    final res = await CommunityService().addComment(_post.id, text);
+    if (!mounted) return;
 
-    if (avg >= 3.8) {
-      if (count >= 12) {
-        return {
-          'label': 'Highly Unsafe',
-          'sublabel': null,
-          'bg': const Color(0xFFFFDAD6),
-          'textColor': const Color(0xFF93000A),
-          'icon': Icons.dangerous_rounded,
-        };
-      }
-      final need = 12 - count;
-      return {
-        'label': 'Unsafe',
-        'sublabel': 'Need $need more rating${need == 1 ? '' : 's'} to confirm Highly Unsafe',
-        'bg': const Color(0xFFFFE0C2),
-        'textColor': const Color(0xFFB84C00),
-        'icon': Icons.report_problem_rounded,
-      };
-    }
+    setState(() => _isPostingComment = false);
 
-    if (avg >= 3.0) {
-      if (count >= 8) {
-        return {
-          'label': 'Unsafe',
-          'sublabel': null,
-          'bg': const Color(0xFFFFE0C2),
-          'textColor': const Color(0xFFB84C00),
-          'icon': Icons.report_problem_rounded,
-        };
-      }
-      final need = 8 - count;
-      return {
-        'label': 'Moderate Risk',
-        'sublabel': 'Need $need more rating${need == 1 ? '' : 's'} to confirm Unsafe',
-        'bg': const Color(0xFFFFF3CD),
-        'textColor': const Color(0xFF856404),
-        'icon': Icons.warning_amber_rounded,
-      };
+    if (res['success'] == true && res['comment'] != null) {
+      _commentController.clear();
+      final newComment = res['comment'] as CommunityComment;
+      setState(() {
+        _comments.add(newComment);
+        _post = _post.copyWith(commentsCount: _post.commentsCount + 1);
+      });
+      widget.onPostUpdated(_post);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to post comment.')),
+      );
     }
+  }
 
-    if (avg >= 2.0) {
-      if (count >= 5) {
-        return {
-          'label': 'Moderate Risk',
-          'sublabel': null,
-          'bg': const Color(0xFFFFF3CD),
-          'textColor': const Color(0xFF856404),
-          'icon': Icons.warning_amber_rounded,
-        };
-      }
-      final need = 5 - count;
-      return {
-        'label': 'Low Concern',
-        'sublabel': 'Need $need more rating${need == 1 ? '' : 's'} to confirm Moderate Risk',
-        'bg': const Color(0xFFDCF5E4),
-        'textColor': const Color(0xFF1B6B35),
-        'icon': Icons.check_circle_outline_rounded,
-      };
+  Future<void> _deleteComment(String commentId) async {
+    final res = await CommunityService().deleteComment(_post.id, commentId);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      setState(() {
+        _comments.removeWhere((c) => c.id == commentId);
+        _post = _post.copyWith(
+          commentsCount: _post.commentsCount > 0 ? _post.commentsCount - 1 : 0,
+        );
+      });
+      widget.onPostUpdated(_post);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to delete comment.')),
+      );
     }
-
-    // avg >= 1.0
-    if (count >= 3) {
-      return {
-        'label': 'Low Concern',
-        'sublabel': null,
-        'bg': const Color(0xFFDCF5E4),
-        'textColor': const Color(0xFF1B6B35),
-        'icon': Icons.check_circle_outline_rounded,
-      };
-    }
-    final need = 3 - count;
-    return {
-      'label': 'Unconfirmed',
-      'sublabel': 'Need $need more rating${need == 1 ? '' : 's'} to assess risk',
-      'bg': const Color(0xFFEEEEEE),
-      'textColor': const Color(0xFF757575),
-      'icon': Icons.pending_outlined,
-    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final alert = widget.alert;
     return Container(
-      decoration: BoxDecoration(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _cardBorder),
-        boxShadow: const [
-          BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2)),
-        ],
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Main card body ───────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Scrollable Post details & comments list
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               children: [
-                // Header row
+                // Category & Time
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: alert.iconBg,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _post.category.color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_post.category.icon, size: 14, color: _post.category.color),
+                          const SizedBox(width: 4),
+                          Text(
+                            _post.category.label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _post.category.color,
+                            ),
                           ),
-                          child: Icon(alert.icon, color: alert.iconColor, size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              alert.title,
-                              style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: _onSurface),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              alert.location,
-                              style: const TextStyle(
-                                  fontSize: 11, color: _onSurfaceVariant),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Text(alert.timeAgo,
-                        style:
-                            const TextStyle(fontSize: 11, color: _onSurfaceVariant)),
+                    const Spacer(),
+                    Text(
+                      _formatDateTime(_post.createdAt),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF4E4449)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
+                // Title
+                Text(
+                  _post.title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF301427),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
                 // Description
                 Text(
-                  alert.description,
+                  _post.description,
                   style: const TextStyle(
-                      fontSize: 14, color: _onSurfaceVariant, height: 1.4),
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Color(0xFF1B1B1C),
+                  ),
                 ),
                 const SizedBox(height: 14),
 
-                // ── Star Rating Row ────────────────────────────────
-                _buildStarRatingRow(alert),
-                const SizedBox(height: 12),
-
-                const Divider(height: 1, color: Color(0x1AD1C3C9)),
-                const SizedBox(height: 8),
-
-                // ── Footer: confirm + comment toggle + author ──────
-                Row(
-                  children: [
-                    // Experienced this
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (alert.isVerifiedByMe) {
-                              alert.verifiedCount--;
-                              alert.isVerifiedByMe = false;
-                            } else {
-                              alert.verifiedCount++;
-                              alert.isVerifiedByMe = true;
-                            }
-                          });
-                          widget.onStateChanged();
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: alert.isVerifiedByMe
-                                ? _primary.withOpacity(0.10)
-                                : _surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: alert.isVerifiedByMe
-                                  ? _primary
-                                  : _surfaceContainerHighest,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                // Location Banner (if coarsened location exists)
+                if (_post.locationName != null || _post.latitude != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2D9E4).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x1A301427)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 18, color: Color(0xFF301427)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                alert.isVerifiedByMe
-                                    ? Icons.thumb_up_rounded
-                                    : Icons.thumb_up_alt_outlined,
-                                size: 14,
-                                color: alert.isVerifiedByMe
-                                    ? _primary
-                                    : _onSurfaceVariant,
+                              Text(
+                                _post.locationName ?? 'Approximate Area',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                               ),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  alert.isVerifiedByMe
-                                      ? 'You & ${alert.verifiedCount - 1} others'
-                                      : '${alert.verifiedCount} experienced this',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: alert.isVerifiedByMe
-                                        ? _primary
-                                        : _onSurfaceVariant,
-                                  ),
-                                ),
+                              const Text(
+                                'Coarse coordinate area (exact addresses protected for safety)',
+                                style: TextStyle(fontSize: 10, color: Color(0xFF4E4449)),
                               ),
                             ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
-                    // Comment toggle button
-                    GestureDetector(
-                      onTap: () => setState(() => _showComments = !_showComments),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _showComments
-                              ? _primary.withOpacity(0.10)
-                              : _surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _showComments
-                                ? _primary
-                                : _surfaceContainerHighest,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 14,
-                              color: _showComments ? _primary : _onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              '${alert.comments.length} comments',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _showComments ? _primary : _onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Author
+                // Author & Upvotes info
+                Row(
+                  children: [
+                    const Icon(Icons.person_pin_circle_outlined, size: 16, color: Color(0xFF705D67)),
+                    const SizedBox(width: 6),
                     Text(
-                      alert.author,
-                      style: const TextStyle(fontSize: 10, color: _onSurfaceVariant),
+                      'Reported by ${_post.authorName}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF705D67)),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.thumb_up_alt_outlined, size: 14, color: Color(0xFF4E4449)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${_post.upvotesCount} upvotes',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF4E4449)),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+                const Divider(height: 32),
 
-          // ── Comments Section (expandable) ────────────────────────
-          if (_showComments) _buildCommentsSection(alert),
-        ],
-      ),
-    );
-  }
-
-  // ── Star Rating Row + Safety Badge ─────────────────────────────────
-  Widget _buildStarRatingRow(_AlertData alert) {
-    final safety = _getSafetyLevel(_avgRating, alert.ratingCount);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Row 1: stars + numeric score ──────────────────────────
-        Row(
-          children: [
-            // Tappable stars
-            for (int star = 1; star <= 5; star++)
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (alert.myRating == star) {
-                      alert.ratingTotal -= star;
-                      alert.ratingCount--;
-                      alert.myRating = 0;
-                    } else if (alert.myRating == 0) {
-                      alert.ratingTotal += star;
-                      alert.ratingCount++;
-                      alert.myRating = star;
-                    } else {
-                      alert.ratingTotal = alert.ratingTotal - alert.myRating + star;
-                      alert.myRating = star;
-                    }
-                  });
-                  widget.onStateChanged();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 3),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 150),
-                    child: Icon(
-                      star <= (alert.myRating > 0 ? alert.myRating : _avgRating.round())
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      key: ValueKey('star_${alert.title}_$star'),
-                      size: 22,
-                      color: star <= (alert.myRating > 0 ? alert.myRating : _avgRating.round())
-                          ? _starActive
-                          : _starInactive,
-                    ),
-                  ),
-                ),
-              ),
-
-            const SizedBox(width: 8),
-
-            Text(
-              alert.ratingCount == 0
-                  ? 'Tap to rate severity'
-                  : '${_avgRating.toStringAsFixed(1)} (${alert.ratingCount} ${alert.ratingCount == 1 ? 'rating' : 'ratings'})',
-              style: TextStyle(
-                fontSize: 12,
-                color: alert.ratingCount == 0 ? _onSurfaceVariant : _starActive,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-
-            if (alert.myRating > 0) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    alert.ratingTotal -= alert.myRating;
-                    alert.ratingCount--;
-                    alert.myRating = 0;
-                  });
-                  widget.onStateChanged();
-                },
-                child: const Text(
-                  '· Remove',
-                  style: TextStyle(fontSize: 11, color: _onSurfaceVariant),
-                ),
-              ),
-            ],
-          ],
-        ),
-
-        // ── Row 2: animated safety threshold badge + sublabel ──────
-        const SizedBox(height: 8),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: (safety['bg'] as Color),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                safety['icon'] as IconData,
-                size: 13,
-                color: safety['textColor'] as Color,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                safety['label'] as String,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: safety['textColor'] as Color,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // sublabel: "Need X more ratings to confirm ..."
-        if (safety['sublabel'] != null) ...[
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Icon(Icons.people_alt_outlined,
-                  size: 11, color: const Color(0xFF757575)),
-              const SizedBox(width: 4),
-              Text(
-                safety['sublabel'] as String,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF757575),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ── Comments Section ───────────────────────────────────────────────
-  Widget _buildCommentsSection(_AlertData alert) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFFAF5F7),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16),
-        ),
-        border: Border(
-          top: BorderSide(color: Color(0x1AD1C3C9)),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Existing comments
-          if (alert.comments.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'No comments yet. Be the first to share your experience.',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: _onSurfaceVariant.withOpacity(0.7),
-                    fontStyle: FontStyle.italic),
-              ),
-            )
-          else
-            ...alert.comments.map((c) => _buildCommentBubble(c)),
-
-          const SizedBox(height: 10),
-
-          // Comment input row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Avatar
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _primary.withOpacity(0.15),
-                ),
-                child: const Center(
-                  child: Text('Y',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: _primary)),
-                ),
-              ),
-              const SizedBox(width: 10),
-
-              // Text field
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0x33301427), width: 1.2),
-                  ),
-                  child: TextField(
-                    controller: _commentController,
-                    minLines: 1,
-                    maxLines: 4,
-                    style: const TextStyle(fontSize: 13, color: _onSurface),
-                    decoration: const InputDecoration(
-                      hintText: 'Add a comment...',
-                      hintStyle:
-                          TextStyle(fontSize: 13, color: _onSurfaceVariant),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      border: InputBorder.none,
-                    ),
-                    onSubmitted: (_) => _submitComment(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Send button
-              GestureDetector(
-                onTap: _submitComment,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                          color: _primary.withOpacity(0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3)),
-                    ],
-                  ),
-                  child: const Icon(Icons.send_rounded,
-                      size: 16, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommentBubble(_Comment comment) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Avatar circle with initial
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _primary.withOpacity(0.12),
-            ),
-            child: Center(
-              child: Text(
-                comment.author[0].toUpperCase(),
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.bold, color: _primary),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                // Comments Header
                 Row(
                   children: [
-                    Text(
-                      comment.author,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: _onSurface),
+                    const Text(
+                      'Community Discussion',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF301427),
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      comment.timeAgo,
-                      style: const TextStyle(
-                          fontSize: 10, color: _onSurfaceVariant),
+                      '(${_comments.length})',
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF4E4449)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 3),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
+                const SizedBox(height: 12),
+
+                // Comments List
+                if (_isLoadingComments)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(color: Color(0xFF301427)),
                     ),
-                    border: Border.all(color: const Color(0x1AD1C3C9)),
+                  )
+                else if (_comments.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        'No comments yet. Share an update or helpful info below.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF4E4449)),
+                      ),
+                    ),
+                  )
+                else
+                  ..._comments.map((comment) => _buildCommentItem(comment)),
+              ],
+            ),
+          ),
+
+          // Comment Input Bar
+          Container(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 10,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Color(0x1A301427))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    maxLines: null,
+                    decoration: InputDecoration(
+                      hintText: 'Add a comment or safety update...',
+                      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF4E4449)),
+                      filled: true,
+                      fillColor: const Color(0xFFF6F3F4),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    comment.text,
-                    style: const TextStyle(
-                        fontSize: 13, color: _onSurface, height: 1.4),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF301427),
+                    foregroundColor: Colors.white,
                   ),
+                  onPressed: _isPostingComment ? null : _submitComment,
+                  icon: _isPostingComment
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommentItem(CommunityComment comment) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F7F8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                comment.authorName,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF301427),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatTimeAgo(comment.createdAt),
+                style: const TextStyle(fontSize: 10, color: Color(0xFF4E4449)),
+              ),
+              if (comment.isOwner) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => _deleteComment(comment.id),
+                  child: const Icon(Icons.close, size: 14, color: Color(0xFFBA1A1A)),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            comment.content,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF1B1B1C)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.day}/${dt.month}/${dt.year} at ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatTimeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Create Safety Report Sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CreatePostSheet extends StatefulWidget {
+  final ValueChanged<CommunityPost> onPostCreated;
+
+  const _CreatePostSheet({required this.onPostCreated});
+
+  @override
+  State<_CreatePostSheet> createState() => _CreatePostSheetState();
+}
+
+class _CreatePostSheetState extends State<_CreatePostSheet> {
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
+
+  CommunityCategory _selectedCategory = CommunityCategory.suspiciousActivity;
+  bool _attachLocation = false;
+  Position? _acquiredPosition;
+  bool _isLocating = false;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLocationToggle(bool val) async {
+    setState(() => _attachLocation = val);
+    if (val && _acquiredPosition == null) {
+      setState(() => _isLocating = true);
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 6),
+          ),
+        );
+        if (!mounted) return;
+        setState(() {
+          _acquiredPosition = pos;
+          _isLocating = false;
+        });
+      } catch (_) {
+        if (mounted) setState(() => _isLocating = false);
+      }
+    }
+  }
+
+  Future<void> _submitPost() async {
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+
+    if (title.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a descriptive title (at least 3 characters).')),
+      );
+      return;
+    }
+
+    if (description.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please describe the concern (at least 10 characters).')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    final res = await CommunityService().createPost(
+      title: title,
+      description: description,
+      category: _selectedCategory.apiKey,
+      locationName: _locationController.text.trim().isNotEmpty ? _locationController.text.trim() : null,
+      latitude: _attachLocation ? _acquiredPosition?.latitude : null,
+      longitude: _attachLocation ? _acquiredPosition?.longitude : null,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (res['success'] == true && res['post'] != null) {
+      Navigator.pop(context);
+      widget.onPostCreated(res['post'] as CommunityPost);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Safety alert published to community.'),
+          backgroundColor: Color(0xFF2E7D32),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to submit report.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.campaign, color: Color(0xFF301427), size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'Post Safety Alert',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                const Text(
+                  'Incident Category',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: CommunityCategory.values.map((cat) {
+                    final isSel = _selectedCategory == cat;
+                    return ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(cat.icon, size: 14, color: isSel ? Colors.white : cat.color),
+                          const SizedBox(width: 4),
+                          Text(cat.label),
+                        ],
+                      ),
+                      selected: isSel,
+                      selectedColor: const Color(0xFF301427),
+                      backgroundColor: const Color(0xFFF6F3F4),
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        color: isSel ? Colors.white : const Color(0xFF1B1B1C),
+                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      onSelected: (selected) {
+                        if (selected) setState(() => _selectedCategory = cat);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 18),
+
+                const Text(
+                  'Title',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _titleController,
+                  maxLength: 200,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Streetlight out on 5th Avenue',
+                    filled: true,
+                    fillColor: const Color(0xFFF6F3F4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                const Text(
+                  'Description',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _descriptionController,
+                  maxLines: 4,
+                  maxLength: 3000,
+                  decoration: InputDecoration(
+                    hintText: 'Provide helpful, objective details to help people navigate safely...',
+                    filled: true,
+                    fillColor: const Color(0xFFF6F3F4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                const Text(
+                  'Location Details (Optional)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _locationController,
+                  maxLength: 255,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Near Rajiv Chowk Gate 4',
+                    prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFF705D67)),
+                    filled: true,
+                    fillColor: const Color(0xFFF6F3F4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                SwitchListTile(
+                  title: const Text('Attach Coarse GPS Coordinates', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text(
+                    'Allows nearby users to view distance. Coarsened to ~110m to protect privacy.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF4E4449)),
+                  ),
+                  value: _attachLocation,
+                  activeColor: const Color(0xFF301427),
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: _handleLocationToggle,
+                ),
+                if (_isLocating) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: LinearProgressIndicator(minHeight: 2, color: Color(0xFF301427)),
+                  ),
+                ],
+                const SizedBox(height: 20),
+
+                // Submit Button
+                ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitPost,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF301427),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Publish Report', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1172,46 +1829,169 @@ class _AlertCardState extends State<_AlertCard> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  Data Models
-// ─────────────────────────────────────────────────────────────────
-class _AlertData {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String title;
-  final String location;
-  final String timeAgo;
-  final String description;
-  final String author;
-  int verifiedCount;
-  bool isVerifiedByMe;
-  List<_Comment> comments;
-  int ratingTotal;
-  int ratingCount;
-  int myRating; // 0 = not rated, 1–5
+// ─────────────────────────────────────────────────────────────────────────────
+// Edit Safety Report Sheet
+// ─────────────────────────────────────────────────────────────────────────────
 
-  _AlertData({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.title,
-    required this.location,
-    required this.timeAgo,
-    required this.description,
-    required this.author,
-    required this.verifiedCount,
-    required this.isVerifiedByMe,
-    required this.comments,
-    required this.ratingTotal,
-    required this.ratingCount,
-  }) : myRating = 0;
+class _EditPostSheet extends StatefulWidget {
+  final CommunityPost post;
+  final ValueChanged<CommunityPost> onPostUpdated;
+
+  const _EditPostSheet({required this.post, required this.onPostUpdated});
+
+  @override
+  State<_EditPostSheet> createState() => _EditPostSheetState();
 }
 
-class _Comment {
-  final String author;
-  final String text;
-  final String timeAgo;
+class _EditPostSheetState extends State<_EditPostSheet> {
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+  late CommunityCategory _selectedCategory;
+  bool _isSubmitting = false;
 
-  _Comment({required this.author, required this.text, required this.timeAgo});
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.post.title);
+    _descriptionController = TextEditingController(text: widget.post.description);
+    _selectedCategory = widget.post.category;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updatePost() async {
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+
+    if (title.length < 3 || description.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title (3+ chars) and description (10+ chars) are required.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final res = await CommunityService().updatePost(
+      id: widget.post.id,
+      title: title,
+      description: description,
+      category: _selectedCategory.apiKey,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (res['success'] == true && res['post'] != null) {
+      Navigator.pop(context);
+      widget.onPostUpdated(res['post'] as CommunityPost);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report updated successfully.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Failed to update report.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                const Text(
+                  'Edit Report',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                ),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                const Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: CommunityCategory.values.map((cat) {
+                    final isSel = _selectedCategory == cat;
+                    return ChoiceChip(
+                      label: Text(cat.label),
+                      selected: isSel,
+                      selectedColor: const Color(0xFF301427),
+                      labelStyle: TextStyle(fontSize: 12, color: isSel ? Colors.white : Colors.black87),
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedCategory = cat);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('Title', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF6F3F4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Description', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _descriptionController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF6F3F4),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _isSubmitting ? null : _updatePost,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF301427),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

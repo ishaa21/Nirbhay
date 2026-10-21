@@ -252,7 +252,22 @@ const getActiveJourney = async (req, res) => {
       return res.status(200).json({ active: false, journey: null });
     }
 
-    return res.status(200).json({ active: true, journey: result.rows[0] });
+    const journey = result.rows[0];
+    const startedAt = new Date(journey.started_at);
+    const hoursElapsed = (Date.now() - startedAt.getTime()) / (1000 * 60 * 60);
+
+    // If journey has been open for > 24 hours, auto-expire it
+    if (hoursElapsed > 24) {
+      try {
+        await db.query(
+          `UPDATE journeys SET status = 'EXPIRED', ended_at = NOW(), end_reason = 'AUTO_EXPIRED' WHERE id = $1`,
+          [journey.id]
+        );
+      } catch (_) {}
+      return res.status(200).json({ active: false, journey: null });
+    }
+
+    return res.status(200).json({ active: true, journey });
   } catch (err) {
     console.error('[JOURNEY] Error fetching active journey:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch journey.', error: err.message });

@@ -235,20 +235,20 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       subtitle = 'Location permission denied. Please grant permission.';
     } else if (state == TrackingState.authExpired) {
       subtitle = 'Session expired. Please log in again.';
-    } else if (isStale) {
+    } else if (isStale && (hasActiveIncident || hasActiveJourney)) {
       subtitle = '⚠️ Location Stale — ${_formatRelativeTime(lastUpload)}';
-    } else if (pos != null) {
+    } else if ((hasActiveIncident || hasActiveJourney) && pos != null) {
       subtitle = 'Live stream active • ${_formatRelativeTime(lastUpload)}';
     } else if (hasActiveIncident || hasActiveJourney) {
       subtitle = 'Acquiring high-accuracy GPS fix...';
     } else {
-      subtitle = 'No active emergency. Tap SOS if in danger.';
+      subtitle = 'No active journey or emergency. Tap SOS if in danger.';
     }
 
-    String accuracyText = 'Standby';
-    if (pos != null) {
-      accuracyText = '±${pos.accuracy.toStringAsFixed(0)}m';
-    } else if (state == TrackingState.gpsDisabled) {
+    String accuracyText = (hasActiveIncident || hasActiveJourney)
+        ? (pos != null ? '±${pos.accuracy.toStringAsFixed(0)}m' : 'Locating')
+        : 'Standby';
+    if (state == TrackingState.gpsDisabled) {
       accuracyText = 'No GPS';
     } else if (state == TrackingState.permissionDenied) {
       accuracyText = 'No Perm';
