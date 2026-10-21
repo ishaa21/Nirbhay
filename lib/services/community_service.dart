@@ -28,6 +28,42 @@ class CommunityService {
     return base;
   }
 
+  /// Safe response parser that intercepts HTML 404/502/503 error pages
+  /// and prevents FormatException on jsonDecode.
+  Map<String, dynamic> _parseResponse(
+    http.Response response, {
+    String defaultErrorMessage = 'Request failed',
+  }) {
+    if (response.statusCode == 404) {
+      return {
+        'success': false,
+        'message':
+            'Community API is currently deploying on the server (404). Please wait a moment and pull down to refresh.',
+      };
+    }
+    if (response.statusCode == 502 || response.statusCode == 503) {
+      return {
+        'success': false,
+        'message':
+            'Backend server is waking up (${response.statusCode}). Please wait 10 seconds and pull to refresh.',
+      };
+    }
+
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {'success': false, 'message': defaultErrorMessage};
+    } catch (_) {
+      return {
+        'success': false,
+        'message':
+            'Unexpected response from server (${response.statusCode}). Please ensure the latest backend is deployed.',
+      };
+    }
+  }
+
   // ── Feed & Posts ───────────────────────────────────────────────────────────
 
   /// Fetch paginated community posts with category and sort filters.
@@ -59,9 +95,9 @@ class CommunityService {
 
       final response = await http
           .get(_url('/posts', queryParams), headers: headers)
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to load community feed.');
 
       if (response.statusCode == 200 && data['success'] == true) {
         final List<CommunityPost> posts = (data['posts'] as List? ?? [])
@@ -81,12 +117,12 @@ class CommunityService {
       } else {
         return {
           'success': false,
-          'message': data['message'] ?? 'Failed to load community feed.',
+          'message': data['message'] ?? 'Failed to load community feed (${response.statusCode}).',
           'posts': <CommunityPost>[],
         };
       }
     } on TimeoutException {
-      return {'success': false, 'message': 'Request timed out. Please try again.', 'posts': <CommunityPost>[]};
+      return {'success': false, 'message': 'Request timed out. Please pull down to refresh.', 'posts': <CommunityPost>[]};
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e', 'posts': <CommunityPost>[]};
     }
@@ -98,9 +134,9 @@ class CommunityService {
       final headers = await _headers();
       final response = await http
           .get(_url('/posts/$id'), headers: headers)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 12));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Post not found.');
 
       if (response.statusCode == 200 && data['success'] == true && data['post'] != null) {
         return {
@@ -145,7 +181,7 @@ class CommunityService {
           .post(_url('/posts'), headers: headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to publish report.');
 
       if (response.statusCode == 201 && data['success'] == true && data['post'] != null) {
         return {
@@ -154,7 +190,7 @@ class CommunityService {
           'message': data['message'] ?? 'Report published successfully.',
         };
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Failed to publish report.'};
+        return {'success': false, 'message': data['message'] ?? 'Failed to publish report (${response.statusCode}).'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Failed to submit report: $e'};
@@ -183,16 +219,16 @@ class CommunityService {
           .patch(_url('/posts/$id'), headers: headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 12));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to update post.');
 
-      if (response.statusCode == 200 && data['success'] == true) {
+      if (response.statusCode == 200 && data['success'] == true && data['post'] != null) {
         return {
           'success': true,
           'post': CommunityPost.fromJson(data['post'] as Map<String, dynamic>),
           'message': data['message'] ?? 'Post updated successfully.',
         };
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Failed to update post.'};
+        return {'success': false, 'message': data['message'] ?? 'Failed to update post (${response.statusCode}).'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Error updating post: $e'};
@@ -211,12 +247,12 @@ class CommunityService {
           .delete(_url('/posts/$id'), headers: headers)
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to delete post.');
 
       if (response.statusCode == 200 && data['success'] == true) {
         return {'success': true, 'message': data['message'] ?? 'Post deleted.'};
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Failed to delete post.'};
+        return {'success': false, 'message': data['message'] ?? 'Failed to delete post (${response.statusCode}).'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Error deleting post: $e'};
@@ -233,9 +269,9 @@ class CommunityService {
 
       final response = await http
           .post(_url('/posts/$id/upvote'), headers: headers)
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to update vote.');
 
       if (response.statusCode == 200 && data['success'] == true) {
         return {
@@ -244,7 +280,7 @@ class CommunityService {
           'upvotesCount': data['upvotesCount'] as int? ?? 0,
         };
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Failed to update vote.'};
+        return {'success': false, 'message': data['message'] ?? 'Failed to update vote (${response.statusCode}).'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Error updating vote: $e'};
@@ -259,7 +295,7 @@ class CommunityService {
           .get(_url('/posts/$postId/comments', {'page': page.toString(), 'limit': limit.toString()}), headers: headers)
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to load comments.');
 
       if (response.statusCode == 200 && data['success'] == true) {
         final List<CommunityComment> comments = (data['comments'] as List? ?? [])
@@ -291,7 +327,7 @@ class CommunityService {
           )
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to add comment.');
 
       if (response.statusCode == 201 && data['success'] == true && data['comment'] != null) {
         return {
@@ -299,7 +335,7 @@ class CommunityService {
           'comment': CommunityComment.fromJson(data['comment'] as Map<String, dynamic>),
         };
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Failed to add comment.'};
+        return {'success': false, 'message': data['message'] ?? 'Failed to add comment (${response.statusCode}).'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Error adding comment: $e'};
@@ -318,7 +354,7 @@ class CommunityService {
           .delete(_url('/posts/$postId/comments/$commentId'), headers: headers)
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to delete comment.');
       return {'success': response.statusCode == 200 && data['success'] == true, 'message': data['message']};
     } catch (e) {
       return {'success': false, 'message': 'Error deleting comment: $e'};
@@ -344,7 +380,7 @@ class CommunityService {
           )
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to submit report.');
 
       return {
         'success': response.statusCode == 200 && data['success'] == true,
@@ -365,9 +401,9 @@ class CommunityService {
 
       final response = await http
           .get(_url('/my-posts', {'page': page.toString(), 'limit': limit.toString()}), headers: headers)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 12));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to load your posts.');
 
       if (response.statusCode == 200 && data['success'] == true) {
         final List<CommunityPost> posts = (data['posts'] as List? ?? [])
@@ -385,7 +421,7 @@ class CommunityService {
           'hasMore': pagination['hasMore'] ?? false,
         };
       } else {
-        return {'success': false, 'posts': <CommunityPost>[], 'message': data['message'] ?? 'Failed to load posts.'};
+        return {'success': false, 'posts': <CommunityPost>[], 'message': data['message'] ?? 'Failed to load posts (${response.statusCode}).'};
       }
     } catch (e) {
       return {'success': false, 'posts': <CommunityPost>[], 'message': 'Error: $e'};
