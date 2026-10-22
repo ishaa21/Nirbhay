@@ -550,94 +550,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         bool isShakeEnabled = false;
         String sensitivity = 'DEFAULT';
         bool isLoading = true;
-        // null = not yet checked; true = granted; false = denied
-        bool? canUseFullScreenIntent;
 
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             if (isLoading) {
-              // Run both queries concurrently without Future.wait to keep typing clean.
-              final fEnabled = ShakeSosService().isServiceEnabled();
-              final fFsi = ShakeSosService().canUseFullScreenIntent();
-              Future.wait<bool>([fEnabled, fFsi]).then((results) {
+              ShakeSosService().isServiceEnabled().then((enabled) {
                 if (ctx.mounted) {
                   setSheetState(() {
-                    isShakeEnabled = results[0];
-                    canUseFullScreenIntent = results[1];
+                    isShakeEnabled = enabled;
                     isLoading = false;
                   });
                 }
               });
             }
 
-            // Build the full-screen intent warning banner (Android 14+).
-            // Only shown when shake is enabled AND the permission is not granted.
-            Widget? permissionBanner;
-            if (!isLoading && isShakeEnabled && canUseFullScreenIntent == false) {
-              permissionBanner = Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3CD),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFFCA28)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFF856404)),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Full-Screen Countdown May Not Appear',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Color(0xFF856404),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'On Android 14+, apps must be explicitly allowed to show full-screen '
-                      'alerts. Without this, the shake countdown will appear as a notification '
-                      'banner instead of a full-screen overlay on the lock screen.\n\n'
-                      'Tap below to open Notification settings and grant '
-                      '"Allow notifications to appear over other apps".',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF856404), height: 1.4),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.open_in_new, size: 16),
-                        label: const Text('Open Notification Settings'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF856404),
-                          side: const BorderSide(color: Color(0xFFFFCA28)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        onPressed: () async {
-                          await ShakeSosService().openNotificationSettings();
-                          // Re-check the permission after returning from settings
-                          if (ctx.mounted) {
-                            final granted = await ShakeSosService().canUseFullScreenIntent();
-                            if (ctx.mounted) {
-                              setSheetState(() => canUseFullScreenIntent = granted);
-                            }
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
 
             return Padding(
               padding: EdgeInsets.only(
@@ -724,13 +650,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       final ok = val
                                           ? await ShakeSosService().startShakeService()
                                           : await ShakeSosService().stopShakeService();
-                                      // After toggling, also re-check the full-screen intent state
-                                      final fsi = await ShakeSosService().canUseFullScreenIntent();
                                       if (ctx.mounted) {
                                         setSheetState(() {
                                           isLoading = false;
                                           if (ok) isShakeEnabled = val;
-                                          canUseFullScreenIntent = fsi;
                                         });
                                       }
                                     },
@@ -768,29 +691,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                             }).toList(),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Permission warning banner (Android 14+ only, when shake is enabled)
-                  if (permissionBanner != null) permissionBanner,
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F2FA),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Icon(Icons.info_outline, size: 18, color: Color(0xFF49454F)),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'When a valid shake is detected, a 15-second countdown notification and full-screen alarm appear. Cancel anytime to prevent alerts. If uncancelled, SOS is automatically dispatched.',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF49454F), height: 1.35),
-                          ),
-                        ),
                       ],
                     ),
                   ),

@@ -34,13 +34,11 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
   static const Color _cardBg = Color(0xFFFFFFFF);
   static const Color _onSurface = Color(0xFF1B1B1C);
   static const Color _onSurfaceVariant = Color(0xFF4E4449);
-  static const Color _secondaryContainer = Color(0xFFF2D9E4);
   static const Color _primaryFixed = Color(0xFFFFD8ED);
   static const Color _primaryContainer = Color(0xFF48293D);
   static const Color _outlineVariant = Color(0xFFD1C3C9);
   static const Color _error = Color(0xFFBA1A1A);
   static const Color _warningBg = Color(0xFFFFF3CD);
-  static const Color _warningBorder = Color(0xFFFFD600);
   static const Color _successColor = Color(0xFF2E7D32);
   static const Color _urgentBg = Color(0xFFFFEBEE);
 
@@ -348,7 +346,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
           ],
         ),
         content: Text(
-          '$message\n\nNote: If a timer is already active on the server, the cloud watchdog will still detect expiry and notify your emergency contacts.',
+          message,
           style: const TextStyle(fontSize: 13.5, color: _onSurfaceVariant, height: 1.4),
         ),
         actions: [
@@ -538,7 +536,6 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                         _buildPreExpiryAlertCard(),
                         const SizedBox(height: 14),
                       ],
-                      _buildOnboardingCard(),
                       const SizedBox(height: 20),
                       _buildTimerVisual(warning: warning),
                       const SizedBox(height: 28),
@@ -716,57 +713,6 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
     );
   }
 
-  Widget _buildOnboardingCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _warningBg.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _warningBorder.withOpacity(0.6)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.info_outline_rounded, color: Color(0xFF795548), size: 18),
-              SizedBox(width: 8),
-              Text(
-                'How the Safety Timer Protects You',
-                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF5D4037)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _bulletPoint('🌐 Internet Required:', 'Setting, checking in, or extending requires an active internet connection to communicate with the server.'),
-          const SizedBox(height: 4),
-          _bulletPoint('🛡️ Server Watchdog:', 'Your active timer is persisted in the cloud database. Even if your phone runs out of battery or loses signal, the server reliably detects expiry.'),
-          const SizedBox(height: 4),
-          _bulletPoint('📲 Emergency SMS:', 'If expired without check-in, the server initiates automated SMS alerts with your last known location and timestamp to your auto-alert contacts.'),
-        ],
-      ),
-    );
-  }
-
-  Widget _bulletPoint(String title, String desc) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('• ', style: TextStyle(fontSize: 12.5, color: Color(0xFF5D4037), fontWeight: FontWeight.bold)),
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              style: const TextStyle(fontSize: 12, color: Color(0xFF5D4037), height: 1.35),
-              children: [
-                TextSpan(text: title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                TextSpan(text: ' $desc'),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildTimerVisual({required bool warning}) {
     final Color progressColor = warning ? _error : (_isRunning ? _successColor : _primary);
@@ -1153,27 +1099,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
 
   Widget _buildStatusCard() {
     if (_activeTimer == null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _secondaryContainer.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _secondaryContainer),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.shield_outlined, color: _primary.withOpacity(0.7), size: 20),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'If you don\'t check in before the timer expires, your emergency contacts (with auto-alert enabled) will automatically receive an SMS with your last known location and timestamp.',
-                style: TextStyle(fontSize: 13, color: _onSurfaceVariant, height: 1.45),
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     // Active timer status card
@@ -1223,28 +1149,6 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
             hasLocation
                 ? '${_activeTimer!.latitude!.toStringAsFixed(4)}, ${_activeTimer!.longitude!.toStringAsFixed(4)}'
                 : 'Not captured',
-          ),
-          const SizedBox(height: 6),
-          _statusRow(Icons.security, 'Server watchdog', 'Active (checks every 60s)'),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.shield_outlined, color: _successColor, size: 16),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Server-side expiry detection is active. Even if the app closes or your battery dies, the backend watchdog will alert your contacts if you miss the check-in.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF1B5E20), fontWeight: FontWeight.w600, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

@@ -162,9 +162,9 @@ class AuthService {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
-          if (fullName != null) 'fullName': fullName,
-          if (email != null) 'email': email,
-          if (phone != null) 'phone': phone,
+          'fullName': ?fullName,
+          'email': ?email,
+          'phone': ?phone,
         }),
       );
 

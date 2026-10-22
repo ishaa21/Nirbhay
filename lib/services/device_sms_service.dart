@@ -16,7 +16,7 @@ class DeviceSmsService {
       EventChannel('com.ishaa21.nirbhay/sms_events');
 
   Stream<Map<String, dynamic>>? _eventStream;
-  final Map<String, _SmsOutcome> _outcomes = {};
+  final Map<String, SmsOutcome> _outcomes = {};
 
   /// Set true in unit tests only (mock method channel; never sends real SMS).
   @visibleForTesting
@@ -107,7 +107,7 @@ class DeviceSmsService {
   }
 
   /// Wait for sent/delivery callbacks for known clientRequestIds (with timeout).
-  Future<Map<String, _SmsOutcome>> waitForOutcomes(
+  Future<Map<String, SmsOutcome>> waitForOutcomes(
     Set<String> clientRequestIds, {
     Duration timeout = const Duration(seconds: 45),
   }) async {
@@ -121,13 +121,13 @@ class DeviceSmsService {
       final status = event['status']?.toString() ?? 'FAILED';
       final existing = _outcomes[id];
       if (type == 'sent') {
-        _outcomes[id] = _SmsOutcome(
+        _outcomes[id] = SmsOutcome(
           sentStatus: status,
           sentError: event['errorMessage']?.toString(),
           deliveredStatus: existing?.deliveredStatus,
         );
       } else if (type == 'delivered') {
-        _outcomes[id] = _SmsOutcome(
+        _outcomes[id] = SmsOutcome(
           sentStatus: existing?.sentStatus ?? 'SENT',
           sentError: existing?.sentError,
           deliveredStatus: status,
@@ -147,7 +147,7 @@ class DeviceSmsService {
 
     await sub.cancel();
     return Map.fromEntries(
-      clientRequestIds.map((id) => MapEntry(id, _outcomes[id] ?? _SmsOutcome())),
+      clientRequestIds.map((id) => MapEntry(id, _outcomes[id] ?? SmsOutcome())),
     );
   }
 
@@ -186,13 +186,13 @@ class DeviceSmsSendResult {
   });
 }
 
-class _SmsOutcome {
+class SmsOutcome {
   final String? sentStatus;
   final String? sentError;
   final String? deliveredStatus;
   final String? deliveredError;
 
-  _SmsOutcome({
+  SmsOutcome({
     this.sentStatus,
     this.sentError,
     this.deliveredStatus,

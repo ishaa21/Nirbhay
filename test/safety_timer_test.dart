@@ -121,8 +121,8 @@ void main() {
       // The 'Safety Timer' title is rendered in the header
       expect(find.text('Safety Timer'), findsOneWidget);
 
-      // Onboarding info card
-      expect(find.text('How the Safety Timer Protects You'), findsOneWidget);
+      // Informational onboarding card is cleaned up
+      expect(find.text('How the Safety Timer Protects You'), findsNothing);
 
       // All four selectable duration chips present
       expect(find.text('5\nMIN'), findsOneWidget);

@@ -127,8 +127,6 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
             children: [
               _buildHeader(),
               const SizedBox(height: 16),
-              _buildStealthBanner(),
-              const SizedBox(height: 20),
 
               // ── Quick Action 1: Fake Call ─────────────────────────────
               _buildActionCard(
@@ -228,30 +226,6 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
           style: TextStyle(fontSize: 14, color: _onSurfaceVariant, height: 1.4),
         ),
       ],
-    );
-  }
-
-  Widget _buildStealthBanner() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFD54F)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Icon(Icons.shield_outlined, color: Color(0xFFF57F17), size: 20),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Fake Call is 100% simulated and will NOT notify contacts or authorities. Real emergency alerts are strictly kept in the separate SOS section below.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF5D4037), height: 1.35, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

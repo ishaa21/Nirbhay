@@ -210,24 +210,6 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
               ),
             ),
-
-            // 3. Support Help FAB
-            Positioned(
-              bottom: 20,
-              right: 20,
-              child: FloatingActionButton(
-                onPressed: () {},
-                elevation: 3,
-                backgroundColor: const Color(0xFF6C5963), // secondary
-                shape: const CircleBorder(),
-                mini: true,
-                child: const Icon(
-                  Icons.help_outline,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
           ],
         ),
       ),

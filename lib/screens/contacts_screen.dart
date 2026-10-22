@@ -17,7 +17,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
   static const Color _primary = Color(0xFF301427);
   static const Color _surface = Color(0xFFFCF8F9);
   static const Color _secondaryContainer = Color(0xFFF2D9E4);
-  static const Color _onSecondaryContainer = Color(0xFF705D67);
   static const Color _onSurfaceVariant = Color(0xFF4E4449);
   static const Color _outlineVariant = Color(0xFFD1C3C9);
 
@@ -166,10 +165,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
               else
                 _buildContactsList(),
 
-              const SizedBox(height: 32),
-
-              // ── Info Box ─────────────────────────────────────────
-              _buildInfoBox(),
             ],
           ),
         ),
@@ -393,54 +388,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Info Box
-  // ─────────────────────────────────────────────────────────────────
-  Widget _buildInfoBox() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _secondaryContainer,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 22,
-            color: _onSecondaryContainer,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'About Automatic Alerts',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _onSecondaryContainer,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'When active, your location and emergency notifications are automatically shared with these contacts if an SOS event is triggered or if you fail to check in during a timed walk.',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: _onSecondaryContainer,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ─────────────────────────────────────────────────────────────────
   //  Add/Edit Contact Bottom Sheet

@@ -44,8 +44,8 @@ void main() {
       expect(find.text('60 sec'), findsOneWidget);
       expect(find.text('5 min'), findsOneWidget);
 
-      // Android restriction explanation card
-      expect(find.text('Android Background Restriction Info'), findsOneWidget);
+      // Android restriction explanation card should not be displayed
+      expect(find.text('Android Background Restriction Info'), findsNothing);
 
       // Trigger button
       expect(find.text('Ring Phone Immediately'), findsOneWidget);

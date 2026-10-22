@@ -137,7 +137,6 @@ class FakeCallScreenState extends State<FakeCallScreen>
   double ringtoneVolume = 0.8;
   bool isPreviewPlaying = false;
   Timer? hapticRingerTimer;
-  FakeCallPermissionStatus? _permissionStatus;
 
   @override
   void initState() {
@@ -169,7 +168,6 @@ class FakeCallScreenState extends State<FakeCallScreen>
       handleDeclineOrEndCall();
     };
 
-    _loadPermissionStatus();
 
     if (widget.isFromTrigger) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -193,13 +191,6 @@ class FakeCallScreenState extends State<FakeCallScreen>
     _checkPendingBackgroundTrigger();
   }
 
-  Future<void> _loadPermissionStatus() async {
-    final status = await FakeCallService().checkPermissions();
-    if (!mounted) return;
-    setState(() {
-      _permissionStatus = status;
-    });
-  }
 
   Future<void> _checkPendingBackgroundTrigger() async {
     final info = await FakeCallService().getPendingTrigger();
@@ -245,7 +236,6 @@ class FakeCallScreenState extends State<FakeCallScreen>
         FakeCallAudioService().pauseRingtone();
       }
     } else if (state == AppLifecycleState.resumed) {
-      _loadPermissionStatus();
       _checkPendingBackgroundTrigger();
       if (showIncomingOverlay && !isCallConnected) {
         FakeCallAudioService().resumeRingtone();
@@ -324,6 +314,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
     });
 
     HapticFeedback.mediumImpact();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Fake call armed! Incoming call in $selectedDelaySeconds seconds.'),
@@ -492,8 +483,6 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   _buildDelaySelector(),
                   const SizedBox(height: 16),
                   _buildRingtoneSettingsCard(),
-                  const SizedBox(height: 16),
-                  _buildAndroidRestrictionInfoCard(),
                   const SizedBox(height: 24),
                   _buildTriggerButton(),
                 ],
@@ -859,116 +848,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
     );
   }
 
-  Widget _buildAndroidRestrictionInfoCard() {
-    final status = _permissionStatus;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3E5F5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFCE93D8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.info_outline_rounded, color: Color(0xFF6A1B9A), size: 18),
-              SizedBox(width: 8),
-              Text(
-                'Android Background Restriction Info',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Scheduled calls use Android native AlarmManager and will trigger when Nirbhay is in background or phone is locked.\n\nEnsure permissions below are granted for lock-screen display and exact timing:',
-            style: TextStyle(fontSize: 11.5, color: Color(0xFF311B92), height: 1.4),
-          ),
-          const SizedBox(height: 10),
-          if (status != null) ...[
-            _buildPermissionRow(
-              title: 'Notifications (Incoming alert banner)',
-              isGranted: status.hasNotificationPermission,
-              actionLabel: 'Allow',
-              onAction: () async {
-                await FakeCallService().requestNotificationPermission();
-                _loadPermissionStatus();
-              },
-            ),
-            const SizedBox(height: 6),
-            _buildPermissionRow(
-              title: 'Exact Alarms (Accurate timer trigger)',
-              isGranted: status.hasExactAlarmPermission,
-              actionLabel: 'Enable',
-              onAction: () async {
-                await FakeCallService().requestExactAlarmPermission();
-              },
-            ),
-            const SizedBox(height: 6),
-            _buildPermissionRow(
-              title: 'Full-Screen Intent (Display over lock screen)',
-              isGranted: status.hasFullScreenIntentPermission,
-              actionLabel: 'Settings',
-              onAction: () async {
-                await FakeCallService().requestFullScreenIntentPermission();
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPermissionRow({
-    required String title,
-    required bool isGranted,
-    required String actionLabel,
-    required VoidCallback onAction,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          isGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-          size: 16,
-          color: isGranted ? const Color(0xFF2E7D32) : const Color(0xFFC2185B),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: isGranted ? const Color(0xFF1B5E20) : const Color(0xFF880E4F),
-            ),
-          ),
-        ),
-        if (!isGranted)
-          InkWell(
-            onTap: onAction,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFF301427),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                actionLabel,
-                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-          )
-        else
-          const Text(
-            'Enabled',
-            style: TextStyle(fontSize: 10, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold),
-          ),
-      ],
-    );
-  }
 
   Widget _buildTriggerButton() {
     final String label = selectedDelaySeconds == 0

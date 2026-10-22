@@ -1356,18 +1356,9 @@ class _PostDetailsSheetState extends State<_PostDetailsSheet> {
                         const Icon(Icons.location_on, size: 18, color: Color(0xFF301427)),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _post.locationName ?? 'Approximate Area',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
-                              ),
-                              const Text(
-                                'Coarse coordinate area (exact addresses protected for safety)',
-                                style: TextStyle(fontSize: 10, color: Color(0xFF4E4449)),
-                              ),
-                            ],
+                          child: Text(
+                            _post.locationName ?? 'Approximate Area',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                           ),
                         ),
                       ],
