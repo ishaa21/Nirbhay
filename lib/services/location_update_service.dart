@@ -301,6 +301,8 @@ class LocationUpdateService {
         'latitude': position.latitude,
         'longitude': position.longitude,
         'accuracy': position.accuracy,
+        'speed': position.speed >= 0 ? position.speed : null,
+        'heading': position.heading >= 0 ? position.heading : null,
       });
 
       bool anySuccess = false;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:nirbhay/models/journey_model.dart';
 import 'package:nirbhay/services/location_update_service.dart';
 import 'package:nirbhay/screens/live_tracking_screen.dart';
 
@@ -34,6 +36,74 @@ void main() {
         return null;
       },
     );
+  });
+
+  group('JourneyModel Unit Tests', () {
+    test('JourneyModel fromJson and toJson', () {
+      final now = DateTime.now();
+      final json = {
+        'id': 'journey-123',
+        'user_id': 'user-456',
+        'status': 'ACTIVE',
+        'destination': 'Home',
+        'tracking_token': 'token-abc-123',
+        'tracking_url': 'https://nirbhay-9d5i.onrender.com/track/token-abc-123',
+        'start_latitude': '28.6139',
+        'start_longitude': '77.2090',
+        'last_known_latitude': '28.6145',
+        'last_known_longitude': '77.2095',
+        'route_deviation_enabled': true,
+        'deviation_threshold_meters': 150,
+        'started_at': now.toIso8601String(),
+        'ended_at': null,
+      };
+
+      final model = JourneyModel.fromJson(json);
+
+      expect(model.id, 'journey-123');
+      expect(model.userId, 'user-456');
+      expect(model.status, 'ACTIVE');
+      expect(model.isActive, isTrue);
+      expect(model.destination, 'Home');
+      expect(model.trackingToken, 'token-abc-123');
+      expect(model.trackingUrl, 'https://nirbhay-9d5i.onrender.com/track/token-abc-123');
+      expect(model.startLatitude, 28.6139);
+      expect(model.startLongitude, 77.2090);
+      expect(model.lastKnownLatitude, 28.6145);
+      expect(model.lastKnownLongitude, 77.2095);
+      expect(model.routeDeviationEnabled, isTrue);
+      expect(model.deviationThresholdMeters, 150);
+
+      final outJson = model.toJson();
+      expect(outJson['id'], 'journey-123');
+      expect(outJson['status'], 'ACTIVE');
+      expect(outJson['destination'], 'Home');
+    });
+
+    test('JourneyModel state helpers', () {
+      final active = JourneyModel(
+        id: '1',
+        userId: 'u',
+        status: 'ACTIVE',
+        trackingToken: 'tok',
+        routeDeviationEnabled: true,
+        deviationThresholdMeters: 150,
+        startedAt: DateTime.now(),
+      );
+      expect(active.isActive, isTrue);
+
+      final completed = JourneyModel(
+        id: '2',
+        userId: 'u',
+        status: 'COMPLETED',
+        trackingToken: 'tok',
+        routeDeviationEnabled: true,
+        deviationThresholdMeters: 150,
+        startedAt: DateTime.now(),
+        endedAt: DateTime.now(),
+      );
+      expect(completed.isActive, isFalse);
+    });
   });
 
   group('LocationUpdateService Unit Tests', () {
@@ -148,6 +218,11 @@ void main() {
       // Verify action buttons
       expect(find.text('Google Maps'), findsOneWidget);
       expect(find.text('SOS'), findsOneWidget);
+      expect(find.text('Share Live Link'), findsOneWidget);
+      expect(find.text('Start Journey & Share'), findsOneWidget);
+
+      // Verify OpenStreetMap interactive widget is rendered immediately
+      expect(find.byType(FlutterMap), findsOneWidget);
     });
   });
 }

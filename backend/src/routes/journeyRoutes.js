@@ -20,24 +20,25 @@ router.get(['/track/:token', '/track/:token/'], getJourneyTrackingData);
 router.use(authenticateToken);
 
 // Start a new journey session
-router.post('/', startJourney);
+router.post(['', '/'], startJourney);
 
 // Get currently active journey
-router.get('/active', getActiveJourney);
+router.get(['/active', '/active/'], getActiveJourney);
 
 // Get journey history
-router.get('/history', getJourneyHistory);
+router.get(['/history', '/history/'], getJourneyHistory);
 
 // Upload a GPS breadcrumb for an active journey
-router.post('/:id/location', uploadJourneyLocation);
+router.post(['/:id/location', '/:id/location/'], uploadJourneyLocation);
 
-// End (complete or cancel) a journey
-router.patch('/:id/end', endJourney);
+// End (complete or cancel) a journey - supports both PATCH and POST
+router.patch(['/:id/end', '/:id/end/'], endJourney);
+router.post(['/:id/end', '/:id/end/'], endJourney);
 
 // Fetch location history / breadcrumbs for a journey
-router.get('/:id/breadcrumbs', getJourneyBreadcrumbs);
+router.get(['/:id/breadcrumbs', '/:id/breadcrumbs/'], getJourneyBreadcrumbs);
 
 // Toggle route deviation alarm
-router.patch('/:id/deviation-alarm', updateDeviationAlarm);
+router.patch(['/:id/deviation-alarm', '/:id/deviation-alarm/'], updateDeviationAlarm);
 
 module.exports = router;

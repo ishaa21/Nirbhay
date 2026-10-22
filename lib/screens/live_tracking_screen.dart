@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
 import '../services/journey_service.dart';
@@ -25,18 +26,57 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   JourneyModel? _activeJourney;
   bool _isLoadingIncident = true;
   bool _isStartingJourney = false;
+  Position? _devicePosition;
   Timer? _tickerTimer;
   Timer? _sosHoldTimer;
 
   @override
   void initState() {
     super.initState();
+    _initDeviceLocation();
     _fetchActiveIncident();
     _fetchActiveJourney();
     LocationUpdateService().statusNotifier.addListener(_onTrackingStatusChanged);
     _tickerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _initDeviceLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final cached = await Geolocator.getLastKnownPosition();
+      if (cached != null && mounted) {
+        setState(() => _devicePosition = cached);
+        try {
+          _mapController.move(LatLng(cached.latitude, cached.longitude), 15.0);
+        } catch (_) {}
+      }
+
+      final fresh = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      if (mounted) {
+        setState(() => _devicePosition = fresh);
+        try {
+          _mapController.move(LatLng(fresh.latitude, fresh.longitude), 16.0);
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('[LiveTrackingScreen] Location acquisition note: $e');
+    }
   }
 
   @override
@@ -52,7 +92,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     if (pos != null) return pos.latitude;
     if (_activeJourney?.lastKnownLatitude != null) return _activeJourney!.lastKnownLatitude;
     if (_activeIncident?.latitude != null) return _activeIncident!.latitude;
-    return _activeJourney?.startLatitude;
+    if (_activeJourney?.startLatitude != null) return _activeJourney!.startLatitude;
+    return _devicePosition?.latitude;
   }
 
   double? get _displayLongitude {
@@ -60,7 +101,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     if (pos != null) return pos.longitude;
     if (_activeJourney?.lastKnownLongitude != null) return _activeJourney!.lastKnownLongitude;
     if (_activeIncident?.longitude != null) return _activeIncident!.longitude;
-    return _activeJourney?.startLongitude;
+    if (_activeJourney?.startLongitude != null) return _activeJourney!.startLongitude;
+    return _devicePosition?.longitude;
   }
 
   void _onTrackingStatusChanged() {
@@ -434,81 +476,66 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Real OpenStreetMap Interactive View
+          // Real OpenStreetMap Interactive View (always visible)
           Positioned.fill(
-            child: (lat != null && lng != null)
-                ? FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: LatLng(lat, lng),
-                      initialZoom: 16.0,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.all,
-                      ),
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.ishaa21.nirbhay',
-                        maxZoom: 19,
-                      ),
-                      CircleLayer(
-                        circles: [
-                          CircleMarker(
-                            point: LatLng(lat, lng),
-                            radius: (pos != null && pos.accuracy > 0) ? pos.accuracy : 25,
-                            useRadiusInMeter: true,
-                            color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.12),
-                            borderColor: isStale ? const Color(0xFFD32F2F) : _primary,
-                            borderStrokeWidth: 1.5,
-                          ),
-                        ],
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: LatLng(lat, lng),
-                            width: 48,
-                            height: 48,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isStale ? const Color(0xFFD32F2F) : _primary,
-                                  border: Border.all(color: Colors.white, width: 2.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.4),
-                                      blurRadius: 10,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(Icons.navigation, color: Colors.white, size: 20),
-                              ),
-                            ),
-                          ),
-                        ],
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: LatLng(lat ?? 28.6139, lng ?? 77.2090),
+                initialZoom: (lat != null && lng != null) ? 16.0 : 13.0,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.ishaa21.nirbhay',
+                  maxZoom: 19,
+                ),
+                if (lat != null && lng != null) ...[
+                  CircleLayer(
+                    circles: [
+                      CircleMarker(
+                        point: LatLng(lat, lng),
+                        radius: (pos != null && pos.accuracy > 0) ? pos.accuracy : 25,
+                        useRadiusInMeter: true,
+                        color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.12),
+                        borderColor: isStale ? const Color(0xFFD32F2F) : _primary,
+                        borderStrokeWidth: 1.5,
                       ),
                     ],
-                  )
-                : Container(
-                    color: const Color(0xFFF0EBE8),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 2, color: _primary),
-                          SizedBox(height: 12),
-                          Text(
-                            'Acquiring live GPS fix...',
-                            style: TextStyle(color: _onSurfaceVariant, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: LatLng(lat, lng),
+                        width: 48,
+                        height: 48,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isStale ? const Color(0xFFD32F2F) : _primary,
+                              border: Border.all(color: Colors.white, width: 2.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isStale ? const Color(0xFFD32F2F) : _primary).withOpacity(0.4),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.navigation, color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
 
           // Navigation Waypoint / Staleness Badge Top-Left
@@ -577,13 +604,18 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     try {
                       _mapController.move(LatLng(lat, lng), 16.0);
                     } catch (_) {}
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Centered on live position.')),
+                    );
+                  } else {
+                    _initDeviceLocation();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Acquiring current GPS location...')),
+                    );
                   }
                   if (_activeIncident != null || _activeJourney != null) {
                     _syncLocationTracking();
                   }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Centered on live position.')),
-                  );
                 },
               ),
             ),
@@ -962,11 +994,11 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 ),
                 onPressed: hasActiveSos
                     ? _handleResolveActiveSos
-                    : (hasActiveJourney ? _showSafetyPinDialog : null),
+                    : (hasActiveJourney ? _showEndJourneyDialog : null),
                 icon: Icon(
                   hasActiveSos
                       ? Icons.check_circle_outline
-                      : (hasActiveJourney ? Icons.lock_reset : Icons.lock_reset),
+                      : (hasActiveJourney ? Icons.stop_circle_outlined : Icons.lock_reset),
                   size: 18,
                 ),
                 label: Text(
@@ -1037,6 +1069,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     setState(() => _isStartingJourney = true);
     final res = await JourneyService().startJourney(
       routeDeviationEnabled: _routeDeviationAlarm,
+      forceNew: true,
     );
     if (!mounted) return;
     setState(() => _isStartingJourney = false);
@@ -1062,17 +1095,15 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           content: Text(
             'Journey started! Live link${url.isNotEmpty ? ' copied to clipboard' : ' generated'}.$smsNote',
           ),
-          backgroundColor: _primary,
+          backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } else if (res['alreadyActive'] == true) {
-      // Refresh to load the existing journey
-      await _fetchActiveJourney();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A journey is already active.')),
-      );
+
+      // Offer immediate sharing sheet to send to WhatsApp / SMS
+      if (url.isNotEmpty) {
+        _showShareModal(url);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(res['message'] ?? 'Failed to start journey.')),
@@ -1109,22 +1140,200 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     // Prefer journey tracking URL; fall back to SOS tracking URL
     final url = _activeJourney?.trackingUrl ?? _activeIncident?.trackingUrl;
     if (url != null && url.isNotEmpty) {
-      Clipboard.setData(ClipboardData(text: url));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Live tracking link copied:\n$url'),
-          backgroundColor: _primary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showShareModal(url);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No active journey or SOS. Tap "Start Journey" to begin sharing.'),
+          content: Text('No active journey or SOS. Tap "Start Journey & Share" first.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     }
+  }
+
+  void _showShareModal(String url) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: const [
+                    Icon(Icons.share_location, color: _primary, size: 24),
+                    SizedBox(width: 10),
+                    Text(
+                      'Share Live Journey Tracking',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _primary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Anyone with this link can view your live route and safety status in real time.',
+                  style: TextStyle(fontSize: 13, color: _onSurfaceVariant),
+                ),
+                const SizedBox(height: 14),
+                // URL display & Copy box
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F3F4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE8E0E3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          url,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _primary,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: url));
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Live tracking link copied to clipboard!'),
+                              backgroundColor: Color(0xFF2E7D32),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 15),
+                        label: const Text('Copy', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Quick Share Action buttons
+                Row(
+                  children: [
+                    // WhatsApp
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF25D366),
+                          side: const BorderSide(color: Color(0xFF25D366)),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          final msg = Uri.encodeComponent(
+                            'I am traveling and sharing my live journey with you for safety via Nirbhay:\n$url',
+                          );
+                          final waUri = Uri.parse('https://wa.me/?text=$msg');
+                          try {
+                            await launchUrl(waUri, mode: LaunchMode.externalApplication);
+                          } catch (_) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Could not launch WhatsApp.')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                        label: const Text('WhatsApp', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // SMS
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _primary,
+                          side: const BorderSide(color: _primary),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          final msg = Uri.encodeComponent(
+                            'I am traveling and sharing my live journey with you for safety via Nirbhay:\n$url',
+                          );
+                          final smsUri = Uri.parse('sms:?body=$msg');
+                          try {
+                            await launchUrl(smsUri, mode: LaunchMode.externalApplication);
+                          } catch (_) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Could not launch SMS.')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.sms_outlined, size: 18),
+                        label: const Text('SMS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Browser preview
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _onSurfaceVariant,
+                          side: const BorderSide(color: Color(0xFFD0C5CA)),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                          } catch (_) {}
+                        },
+                        icon: const Icon(Icons.open_in_browser, size: 18),
+                        label: const Text('Open', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _handleResolveActiveSos() async {
@@ -1172,11 +1381,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Safety PIN Dialog (End Journey)
+  // End Journey Confirmation Dialog
   // ──────────────────────────────────────────────────────────────────────────
-  void _showSafetyPinDialog() {
-    final List<TextEditingController> pinControllers = List.generate(4, (_) => TextEditingController());
-
+  void _showEndJourneyDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1184,99 +1391,68 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: const [
-            Icon(Icons.lock, color: _primary),
+            Icon(Icons.stop_circle_outlined, color: Color(0xFFBA1A1A)),
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'End Journey Safely?',
-                style: TextStyle(color: _primary, fontWeight: FontWeight.bold),
+                'End Live Journey?',
+                style: TextStyle(color: _primary, fontWeight: FontWeight.bold, fontSize: 17),
               ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'You have arrived safely. This will end your live tracking session and notify your guardians.',
-              style: TextStyle(fontSize: 13, color: _onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(4, (index) {
-                return SizedBox(
-                  width: 44,
-                  height: 48,
-                  child: TextField(
-                    controller: pinControllers[index],
-                    obscureText: true,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    maxLength: 1,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primary),
-                    decoration: InputDecoration(
-                      counterText: '',
-                      filled: true,
-                      fillColor: const Color(0xFFF0EDEE),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: (val) {
-                      if (val.isNotEmpty && index < 3) {
-                        FocusScope.of(ctx).nextFocus();
-                      }
-                    },
-                  ),
-                );
-              }),
-            ),
-          ],
+        content: const Text(
+          'Are you sure you want to end your journey? Live location sharing with guardians will stop.',
+          style: TextStyle(fontSize: 14, color: _onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
+            child: const Text('Keep Tracking', style: TextStyle(color: _onSurfaceVariant, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _primary),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFBA1A1A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
             onPressed: () async {
               Navigator.of(ctx).pop();
-              if (_activeJourney != null) {
-                final res = await JourneyService().endJourney(
-                  journeyId: _activeJourney!.id,
-                  reason: 'COMPLETED',
-                );
-                if (!mounted) return;
-                if (res['success'] == true) {
-                  setState(() => _activeJourney = null);
-                  LocationUpdateService().stopJourneyTracking();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Journey completed safely. Guardians notified.'),
-                      backgroundColor: Color(0xFF2E7D32),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(res['message'] ?? 'Failed to end journey.')),
-                  );
-                }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Journey completed safely. Guardians notified.')),
-                );
-              }
+              await _endActiveJourney();
             },
-            child: const Text('Confirm & End', style: TextStyle(color: Colors.white)),
+            child: const Text('End Journey', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _endActiveJourney() async {
+    final journeyId = _activeJourney?.id ?? 'active';
+    final res = await JourneyService().endJourney(
+      journeyId: journeyId,
+      reason: 'COMPLETED',
+    );
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() => _activeJourney = null);
+      LocationUpdateService().stopJourneyTracking();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Journey ended safely. Live tracking stopped.'),
+          backgroundColor: Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      await _fetchActiveJourney();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message'] ?? 'Could not end journey.')),
+      );
+    }
   }
 
   Future<void> _triggerEmergencySOS() async {

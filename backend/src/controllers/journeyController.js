@@ -16,20 +16,39 @@ const DEVIATION_ALERT_COOLDOWN_MS = 15 * 60 * 1000;
  */
 const startJourney = async (req, res) => {
   const userId = req.userId;
-  const { latitude, longitude, destination, routeDeviationEnabled = true, deviationThresholdMeters = 150 } = req.body;
+  const {
+    latitude,
+    longitude,
+    destination,
+    routeDeviationEnabled = true,
+    deviationThresholdMeters = 150,
+    forceNew = false,
+  } = req.body;
 
   try {
     const existing = await db.query(
-      `SELECT id FROM journeys WHERE user_id = $1 AND status = 'ACTIVE' LIMIT 1`,
+      `SELECT id, started_at FROM journeys WHERE user_id = $1 AND status = 'ACTIVE' ORDER BY started_at DESC LIMIT 1`,
       [userId]
     );
+
     if (existing.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        code: 'ACTIVE_JOURNEY_EXISTS',
-        message: 'A journey is already active.',
-        journeyId: existing.rows[0].id,
-      });
+      const activeRow = existing.rows[0];
+      const hoursElapsed = (Date.now() - new Date(activeRow.started_at).getTime()) / (1000 * 60 * 60);
+
+      // Auto-complete stale journey older than 12 hours, or forceNew if requested
+      if (hoursElapsed > 12 || forceNew) {
+        await db.query(
+          `UPDATE journeys SET status = 'COMPLETED', ended_at = NOW() WHERE id = $1`,
+          [activeRow.id]
+        );
+      } else {
+        return res.status(409).json({
+          success: false,
+          code: 'ACTIVE_JOURNEY_EXISTS',
+          message: 'A journey is already active.',
+          journeyId: activeRow.id,
+        });
+      }
     }
 
     const trackingToken = crypto.randomBytes(24).toString('hex');
@@ -256,14 +275,16 @@ const getActiveJourney = async (req, res) => {
     const startedAt = new Date(journey.started_at);
     const hoursElapsed = (Date.now() - startedAt.getTime()) / (1000 * 60 * 60);
 
-    // If journey has been open for > 24 hours, auto-expire it
-    if (hoursElapsed > 24) {
+    // If journey has been open for > 12 hours, auto-complete it
+    if (hoursElapsed > 12) {
       try {
         await db.query(
-          `UPDATE journeys SET status = 'EXPIRED', ended_at = NOW(), end_reason = 'AUTO_EXPIRED' WHERE id = $1`,
+          `UPDATE journeys SET status = 'COMPLETED', ended_at = NOW() WHERE id = $1`,
           [journey.id]
         );
-      } catch (_) {}
+      } catch (e) {
+        console.error('[JOURNEY] Failed to auto-complete expired journey:', e);
+      }
       return res.status(200).json({ active: false, journey: null });
     }
 
@@ -283,22 +304,41 @@ const endJourney = async (req, res) => {
   const { reason = 'COMPLETED' } = req.body;
 
   try {
-    const existing = await db.query(
-      `SELECT id, status FROM journeys WHERE id = $1 AND user_id = $2`,
-      [id, userId]
-    );
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ message: 'Journey not found.' });
+    let existing;
+    if (id === 'active' || !id) {
+      existing = await db.query(
+        `SELECT id, status FROM journeys WHERE user_id = $1 AND status = 'ACTIVE' LIMIT 1`,
+        [userId]
+      );
+    } else {
+      existing = await db.query(
+        `SELECT id, status FROM journeys WHERE id = $1 AND user_id = $2`,
+        [id, userId]
+      );
     }
-    if (existing.rows[0].status !== 'ACTIVE') {
-      return res.status(400).json({ message: `Journey is already ${existing.rows[0].status}.` });
+
+    if (existing.rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No active journey found to end.',
+        journey: null,
+      });
+    }
+
+    const activeJourney = existing.rows[0];
+    if (activeJourney.status !== 'ACTIVE') {
+      return res.status(200).json({
+        success: true,
+        message: `Journey is already ${activeJourney.status.toLowerCase()}.`,
+        journey: activeJourney,
+      });
     }
 
     const finalStatus = reason === 'CANCELLED' ? 'CANCELLED' : 'COMPLETED';
 
     const updated = await db.query(
       `UPDATE journeys SET status = $1, ended_at = NOW() WHERE id = $2 RETURNING *`,
-      [finalStatus, id]
+      [finalStatus, activeJourney.id]
     );
 
     let notifications = null;

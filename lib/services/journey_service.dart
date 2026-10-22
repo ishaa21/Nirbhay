@@ -63,10 +63,12 @@ class JourneyService {
 
   /// Start a new live journey session.
   /// Optionally pass [destination] text (e.g. "Home", "Office").
+  /// Pass [forceNew] = true to automatically replace any stale/existing active journey.
   Future<Map<String, dynamic>> startJourney({
     String? destination,
     bool routeDeviationEnabled = true,
     int deviationThresholdMeters = 150,
+    bool forceNew = false,
   }) async {
     try {
       final headers = await _authHeaders();
@@ -78,6 +80,7 @@ class JourneyService {
       final body = <String, dynamic>{
         'routeDeviationEnabled': routeDeviationEnabled,
         'deviationThresholdMeters': deviationThresholdMeters,
+        'forceNew': forceNew,
         if (destination != null && destination.isNotEmpty)
           'destination': destination,
         if (position != null) 'latitude': position.latitude,
@@ -88,7 +91,20 @@ class JourneyService {
           .post(_url(''), headers: headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      Map<String, dynamic> data = {};
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          data = decoded;
+        }
+      } catch (_) {
+        return {
+          'success': false,
+          'message': response.statusCode >= 500
+              ? 'Server is starting up. Please retry in a few moments.'
+              : 'Server returned unexpected response (${response.statusCode}).',
+        };
+      }
 
       if (response.statusCode == 201) {
         return {
@@ -99,6 +115,15 @@ class JourneyService {
           'notifications': data['notifications'],
         };
       } else if (response.statusCode == 409) {
+        if (!forceNew) {
+          // Attempt auto-recovery by forcing new journey
+          return await startJourney(
+            destination: destination,
+            routeDeviationEnabled: routeDeviationEnabled,
+            deviationThresholdMeters: deviationThresholdMeters,
+            forceNew: true,
+          );
+        }
         return {
           'success': false,
           'alreadyActive': true,
@@ -129,7 +154,15 @@ class JourneyService {
           .get(_url('/active'), headers: headers)
           .timeout(const Duration(seconds: 10));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      Map<String, dynamic> data = {};
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          data = decoded;
+        }
+      } catch (_) {
+        return {'success': false, 'active': false, 'message': 'Unexpected response format.'};
+      }
 
       if (response.statusCode == 200) {
         final bool active = data['active'] as bool? ?? false;
@@ -172,9 +205,9 @@ class JourneyService {
       final body = <String, dynamic>{
         'latitude': latitude,
         'longitude': longitude,
-        if (accuracy != null) 'accuracy': accuracy,
-        if (speed != null) 'speed': speed,
-        if (heading != null) 'heading': heading,
+        'accuracy': ?accuracy,
+        'speed': ?speed,
+        'heading': ?heading,
       };
 
       final response = await http
@@ -218,12 +251,23 @@ class JourneyService {
           )
           .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      Map<String, dynamic> data = {};
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          data = decoded;
+        }
+      } catch (_) {
+        if (response.statusCode == 200) {
+          return {'success': true, 'message': 'Journey ended.'};
+        }
+        return {'success': false, 'message': 'Failed to end journey (${response.statusCode}).'};
+      }
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'journey': JourneyModel.fromJson(data['journey']),
+          'journey': data['journey'] != null ? JourneyModel.fromJson(data['journey']) : null,
           'message': data['message'] ?? 'Journey ended.',
         };
       } else {
@@ -253,7 +297,7 @@ class JourneyService {
             headers: headers,
             body: jsonEncode({
               'enabled': enabled,
-              if (thresholdMeters != null) 'thresholdMeters': thresholdMeters,
+              'thresholdMeters': ?thresholdMeters,
             }),
           )
           .timeout(const Duration(seconds: 10));
