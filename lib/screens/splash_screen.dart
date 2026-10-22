@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/fake_call_service.dart';
 import '../services/web_helper.dart';
 import 'dashboard_screen.dart';
+import 'fake_call_screen.dart';
 import 'signin_screen.dart';
 
 
@@ -49,6 +51,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _animationController.forward();
 
+    // Fast-path: Check if app was woken up/launched via Fake Call alarm or notification
+    FakeCallService().getPendingTrigger().then((pendingInfo) {
+      if (!mounted) return;
+      if (pendingInfo.hasPendingTrigger) {
+        _progressTimer?.cancel();
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => FakeCallScreen(
+              initialCallerName: pendingInfo.callerName,
+              initialCallerSubtitle: pendingInfo.callerSubtitle,
+              autoAccept: pendingInfo.isAccepted,
+              isFromTrigger: true,
+            ),
+          ),
+        );
+      }
+    });
+
     // 2. Simulate loading progress non-linearly (every 30ms)
     _startProgressSimulation();
   }
@@ -76,6 +96,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _checkSessionAndNavigate() async {
     if (!mounted) return;
+
+    // Check if triggered via Fake Call
+    final pendingInfo = await FakeCallService().getPendingTrigger();
+    if (!mounted) return;
+    if (pendingInfo.hasPendingTrigger) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => FakeCallScreen(
+            initialCallerName: pendingInfo.callerName,
+            initialCallerSubtitle: pendingInfo.callerSubtitle,
+            autoAccept: pendingInfo.isAccepted,
+            isFromTrigger: true,
+          ),
+        ),
+      );
+      return;
+    }
 
     bool isLoggedIn = false;
     try {

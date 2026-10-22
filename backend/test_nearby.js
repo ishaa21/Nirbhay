@@ -254,6 +254,20 @@ async function runTests() {
       console.log(`      Categories found in "all": ${Array.from(categoriesFound).join(', ')}`);
       assert.ok(categoriesFound.size >= 1);
     });
+
+    await it('GET /api/nearby/reverse returns human-readable location', async () => {
+      const revRes = await request('/api/nearby/reverse?lat=12.9352&lng=77.6245');
+      assert.strictEqual(revRes.status, 200);
+      assert.strictEqual(revRes.body.success, true);
+      assert.ok(revRes.body.formattedLocation);
+      console.log(`      Reverse geocode result: "${revRes.body.formattedLocation}"`);
+    });
+
+    await it('GET /api/nearby/reverse subsequent request serves from cache', async () => {
+      const revRes2 = await request('/api/nearby/reverse?lat=12.9352&lng=77.6245');
+      assert.strictEqual(revRes2.status, 200);
+      assert.strictEqual(revRes2.body.cached, true);
+    });
     console.log(`\n═══════════════════════════════════════════════════════════════`);
     console.log(`  RESULTS: ${passed} PASSED | ${failed} FAILED`);
     console.log(`═══════════════════════════════════════════════════════════════\n`);

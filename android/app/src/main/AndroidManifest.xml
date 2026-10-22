@@ -32,6 +32,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Resume shake detection after reboot if user has enabled it -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -114,6 +116,17 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+        <!-- Fake Call background receiver for heads-up alarm presentation -->
+        <receiver
+            android:name=".FakeCallReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ishaa21.nirbhay.ACTION_TRIGGER_FAKE_CALL" />
+                <action android:name="com.ishaa21.nirbhay.ACTION_DISMISS_FAKE_CALL" />
+                <action android:name="com.ishaa21.nirbhay.ACTION_ACCEPT_FAKE_CALL" />
             </intent-filter>
         </receiver>
     </application>

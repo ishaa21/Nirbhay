@@ -5,6 +5,7 @@ import '../models/sos_model.dart';
 import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
 import '../services/fake_call_audio_service.dart';
+import '../services/fake_call_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CallerAvatarPreset
@@ -82,7 +83,18 @@ const List<CallerAvatarPreset> kCallerPresets = [
 // FakeCallScreen
 // ─────────────────────────────────────────────────────────────────────────────
 class FakeCallScreen extends StatefulWidget {
-  const FakeCallScreen({super.key});
+  final String? initialCallerName;
+  final String? initialCallerSubtitle;
+  final bool autoAccept;
+  final bool isFromTrigger;
+
+  const FakeCallScreen({
+    super.key,
+    this.initialCallerName,
+    this.initialCallerSubtitle,
+    this.autoAccept = false,
+    this.isFromTrigger = false,
+  });
 
   @override
   State<FakeCallScreen> createState() => FakeCallScreenState();
@@ -125,13 +137,51 @@ class FakeCallScreenState extends State<FakeCallScreen>
   double ringtoneVolume = 0.8;
   bool isPreviewPlaying = false;
   Timer? hapticRingerTimer;
+  FakeCallPermissionStatus? _permissionStatus;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    callerNameController = TextEditingController(text: selectedPreset.defaultName);
+    final initialName = (widget.initialCallerName != null && widget.initialCallerName!.trim().isNotEmpty)
+        ? widget.initialCallerName!.trim()
+        : selectedPreset.defaultName;
+    callerNameController = TextEditingController(text: initialName);
+
+    FakeCallService().onCallTriggered = (callerName, callerSubtitle, isAccepted) {
+      if (!mounted) return;
+      setState(() {
+        callerNameController.text = callerName;
+        isArmed = false;
+        countdownRemainingSeconds = 0;
+      });
+      if (isAccepted) {
+        _triggerIncomingCall();
+        handleAcceptCall();
+      } else {
+        _triggerIncomingCall();
+      }
+    };
+
+    FakeCallService().onCallCancelled = () {
+      if (!mounted) return;
+      handleDeclineOrEndCall();
+    };
+
+    _loadPermissionStatus();
+
+    if (widget.isFromTrigger) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.autoAccept) {
+          _triggerIncomingCall();
+          handleAcceptCall();
+        } else {
+          _triggerIncomingCall();
+        }
+      });
+    }
 
     pulseController = AnimationController(
       vsync: this,
@@ -140,15 +190,48 @@ class FakeCallScreenState extends State<FakeCallScreen>
     pulseAnim = Tween<double>(begin: 0.9, end: 1.15).animate(
       CurvedAnimation(parent: pulseController, curve: Curves.easeInOut),
     );
+    _checkPendingBackgroundTrigger();
   }
+
+  Future<void> _loadPermissionStatus() async {
+    final status = await FakeCallService().checkPermissions();
+    if (!mounted) return;
+    setState(() {
+      _permissionStatus = status;
+    });
+  }
+
+  Future<void> _checkPendingBackgroundTrigger() async {
+    final info = await FakeCallService().getPendingTrigger();
+    if (!mounted) return;
+    if (info.hasPendingTrigger) {
+      setState(() {
+        // Set caller name
+        callerNameController.text = info.callerName;
+        isArmed = false;
+        countdownRemainingSeconds = 0;
+      });
+      if (info.isAccepted) {
+        _triggerIncomingCall();
+        handleAcceptCall();
+      } else {
+        _triggerIncomingCall();
+      }
+    }
+  }
+
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FakeCallService().onCallTriggered = null;
+    FakeCallService().onCallCancelled = null;
     countdownTimer?.cancel();
     callDurationTimer?.cancel();
     hapticRingerTimer?.cancel();
     FakeCallAudioService().stopRingtone();
+    FakeCallService().stopRingtone();
+    FakeCallService().cancelScheduledFakeCall();
     callerNameController.dispose();
     pulseController.dispose();
     super.dispose();
@@ -162,6 +245,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
         FakeCallAudioService().pauseRingtone();
       }
     } else if (state == AppLifecycleState.resumed) {
+      _loadPermissionStatus();
+      _checkPendingBackgroundTrigger();
       if (showIncomingOverlay && !isCallConnected) {
         FakeCallAudioService().resumeRingtone();
       }
@@ -189,12 +274,30 @@ class FakeCallScreenState extends State<FakeCallScreen>
     });
   }
 
-  void armFakeCall() {
+  Future<void> armFakeCall() async {
+    final callerName = callerNameController.text.trim().isNotEmpty
+        ? callerNameController.text.trim()
+        : selectedPreset.defaultName;
+
+    final avatarIndex = kCallerPresets.indexOf(selectedPreset);
+
     if (selectedDelaySeconds == 0) {
-      // Immediate trigger
+      await FakeCallService().scheduleFakeCall(
+        delaySeconds: 0,
+        callerName: callerName,
+        callerSubtitle: selectedPreset.subtitle,
+        avatarIndex: avatarIndex >= 0 ? avatarIndex : 0,
+      );
       _triggerIncomingCall();
       return;
     }
+
+    await FakeCallService().scheduleFakeCall(
+      delaySeconds: selectedDelaySeconds,
+      callerName: callerName,
+      callerSubtitle: selectedPreset.subtitle,
+      avatarIndex: avatarIndex >= 0 ? avatarIndex : 0,
+    );
 
     final fireAt = DateTime.now().add(Duration(seconds: selectedDelaySeconds));
     setState(() {
@@ -233,6 +336,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
   void cancelScheduledCall() {
     countdownTimer?.cancel();
     FakeCallAudioService().stopRingtone();
+    FakeCallService().stopRingtone();
+    FakeCallService().cancelScheduledFakeCall();
     setState(() {
       isArmed = false;
       scheduledFireTime = null;
@@ -250,6 +355,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
 
   void _triggerIncomingCall() {
     countdownTimer?.cancel();
+    FakeCallService().stopRingtone();
     setState(() {
       isArmed = false;
       scheduledFireTime = null;
@@ -267,6 +373,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
   void handleAcceptCall() {
     // Stop ringing immediately upon answering the simulated call
     FakeCallAudioService().stopRingtone();
+    FakeCallService().stopRingtone();
+    FakeCallService().cancelScheduledFakeCall();
     hapticRingerTimer?.cancel();
     HapticFeedback.mediumImpact();
     setState(() {
@@ -289,6 +397,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
   void handleDeclineOrEndCall() {
     // Stop ringing immediately upon declining or hanging up
     FakeCallAudioService().stopRingtone();
+    FakeCallService().stopRingtone();
+    FakeCallService().cancelScheduledFakeCall();
     hapticRingerTimer?.cancel();
     callDurationTimer?.cancel();
     HapticFeedback.lightImpact();
@@ -298,6 +408,10 @@ class FakeCallScreenState extends State<FakeCallScreen>
       callDurationSeconds = 0;
       isPreviewPlaying = false;
     });
+
+    if (widget.isFromTrigger && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _handleEmergencyEscalation() async {
@@ -574,6 +688,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
       (10, '10 sec', Icons.timer_outlined),
       (30, '30 sec', Icons.schedule_rounded),
       (60, '60 sec', Icons.hourglass_bottom_rounded),
+      (300, '5 min', Icons.alarm_rounded),
     ];
 
     return Container(
@@ -591,21 +706,22 @@ class FakeCallScreenState extends State<FakeCallScreen>
         children: [
           const Text('2. Ring Delay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
           const SizedBox(height: 12),
-          Row(
-            children: delays.map((item) {
-              final seconds = item.$1;
-              final label = item.$2;
-              final icon = item.$3;
-              final isSelected = selectedDelaySeconds == seconds;
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: delays.map((item) {
+                final seconds = item.$1;
+                final label = item.$2;
+                final icon = item.$3;
+                final isSelected = selectedDelaySeconds == seconds;
 
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
                     onTap: isArmed ? null : () => setState(() => selectedDelaySeconds = seconds),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected ? _primaryFixed : _surface,
                         borderRadius: BorderRadius.circular(10),
@@ -630,9 +746,9 @@ class FakeCallScreenState extends State<FakeCallScreen>
                       ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -744,6 +860,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   Widget _buildAndroidRestrictionInfoCard() {
+    final status = _permissionStatus;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -766,18 +884,98 @@ class FakeCallScreenState extends State<FakeCallScreen>
           ),
           const SizedBox(height: 6),
           const Text(
-            'Modern Android (Android 10+) restricts apps from launching full-screen screens directly from the background or lockscreen without special telecom permissions.\n\nKeep Nirbhay active or unlocked. If the screen is locked, the call screen triggers immediately upon unlocking.',
+            'Scheduled calls use Android native AlarmManager and will trigger when Nirbhay is in background or phone is locked.\n\nEnsure permissions below are granted for lock-screen display and exact timing:',
             style: TextStyle(fontSize: 11.5, color: Color(0xFF311B92), height: 1.4),
           ),
+          const SizedBox(height: 10),
+          if (status != null) ...[
+            _buildPermissionRow(
+              title: 'Notifications (Incoming alert banner)',
+              isGranted: status.hasNotificationPermission,
+              actionLabel: 'Allow',
+              onAction: () async {
+                await FakeCallService().requestNotificationPermission();
+                _loadPermissionStatus();
+              },
+            ),
+            const SizedBox(height: 6),
+            _buildPermissionRow(
+              title: 'Exact Alarms (Accurate timer trigger)',
+              isGranted: status.hasExactAlarmPermission,
+              actionLabel: 'Enable',
+              onAction: () async {
+                await FakeCallService().requestExactAlarmPermission();
+              },
+            ),
+            const SizedBox(height: 6),
+            _buildPermissionRow(
+              title: 'Full-Screen Intent (Display over lock screen)',
+              isGranted: status.hasFullScreenIntentPermission,
+              actionLabel: 'Settings',
+              onAction: () async {
+                await FakeCallService().requestFullScreenIntentPermission();
+              },
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildPermissionRow({
+    required String title,
+    required bool isGranted,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          isGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+          size: 16,
+          color: isGranted ? const Color(0xFF2E7D32) : const Color(0xFFC2185B),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: isGranted ? const Color(0xFF1B5E20) : const Color(0xFF880E4F),
+            ),
+          ),
+        ),
+        if (!isGranted)
+          InkWell(
+            onTap: onAction,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF301427),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                actionLabel,
+                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          )
+        else
+          const Text(
+            'Enabled',
+            style: TextStyle(fontSize: 10, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold),
+          ),
+      ],
     );
   }
 
   Widget _buildTriggerButton() {
     final String label = selectedDelaySeconds == 0
         ? 'Ring Phone Immediately'
-        : 'Arm Call (${selectedDelaySeconds}s Delay)';
+        : (selectedDelaySeconds == 300
+            ? 'Arm Call (5 min Delay)'
+            : 'Arm Call (${selectedDelaySeconds}s Delay)');
 
     return SizedBox(
       width: double.infinity,

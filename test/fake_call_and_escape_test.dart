@@ -42,6 +42,7 @@ void main() {
       expect(find.text('10 sec'), findsOneWidget);
       expect(find.text('30 sec'), findsOneWidget);
       expect(find.text('60 sec'), findsOneWidget);
+      expect(find.text('5 min'), findsOneWidget);
 
       // Android restriction explanation card
       expect(find.text('Android Background Restriction Info'), findsOneWidget);
@@ -76,6 +77,12 @@ void main() {
       await tester.pump();
 
       expect(find.text('Arm Call (30s Delay)'), findsOneWidget);
+
+      // Select 5 min delay
+      await tester.tap(find.text('5 min'));
+      await tester.pump();
+
+      expect(find.text('Arm Call (5 min Delay)'), findsOneWidget);
 
       // Tap preset 'Police'
       await tester.tap(find.text('Police'));
@@ -220,6 +227,73 @@ void main() {
       expect(state.showIncomingOverlay, isTrue);
 
       // Clean up
+      state.handleDeclineOrEndCall();
+      await tester.pump();
+    });
+
+    testWidgets('Incoming call triggered from native intent directly displays incoming overlay with caller name', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: FakeCallScreen(
+            initialCallerName: 'Inspector Sharma',
+            initialCallerSubtitle: 'Police Station',
+            isFromTrigger: true,
+            autoAccept: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Over the lock screen / incoming call overlay should be visible immediately
+      expect(find.text('Inspector Sharma'), findsWidgets);
+      expect(find.text('Decline'), findsOneWidget);
+      expect(find.text('Accept'), findsOneWidget);
+
+      final state = tester.state<FakeCallScreenState>(find.byType(FakeCallScreen));
+      expect(state.showIncomingOverlay, isTrue);
+      expect(state.isCallConnected, isFalse);
+
+      state.handleDeclineOrEndCall();
+      await tester.pump();
+    });
+
+    testWidgets('Tapping Accept on notification intent launches directly into connected call state', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: FakeCallScreen(
+            initialCallerName: 'Mom',
+            initialCallerSubtitle: 'Mobile',
+            isFromTrigger: true,
+            autoAccept: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final state = tester.state<FakeCallScreenState>(find.byType(FakeCallScreen));
+      expect(state.showIncomingOverlay, isTrue);
+      expect(state.isCallConnected, isTrue);
+
+      // Connected controls visible
+      expect(find.text('Mute'), findsOneWidget);
+      expect(find.text('End Call'), findsOneWidget);
+
       state.handleDeclineOrEndCall();
       await tester.pump();
     });

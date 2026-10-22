@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/nearby_place_model.dart';
+import '../services/api_config.dart';
 import '../services/nearby_service.dart';
 
 class MapScreen extends StatefulWidget {
@@ -38,6 +40,9 @@ class _MapScreenState extends State<MapScreen> {
   // State
   bool _isLoading = false;
   String? _errorMessage;
+  String? _errorCode;
+  bool _isResultCached = false;
+  Timer? _categoryDebounceTimer;
   LocationResultType? _locationErrorType;
   Position? _currentPosition;
   String? _selectedPlaceId;
@@ -64,6 +69,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _categoryDebounceTimer?.cancel();
     _mapController.dispose();
     super.dispose();
   }
@@ -93,8 +99,22 @@ class _MapScreenState extends State<MapScreen> {
     await _fetchPlacesForCategory(_selectedCategory);
   }
 
+  void _onCategorySelected(String categoryKey) {
+    if (_selectedCategory == categoryKey && !_isLoading) return;
+    _categoryDebounceTimer?.cancel();
+    setState(() {
+      _selectedCategory = categoryKey;
+      _isLoading = true;
+      _errorMessage = null;
+      _errorCode = null;
+    });
+    _categoryDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _fetchPlacesForCategory(categoryKey);
+    });
+  }
+
   /// Fetches places for the selected category from the backend
-  Future<void> _fetchPlacesForCategory(String categoryKey) async {
+  Future<void> _fetchPlacesForCategory(String categoryKey, {bool forceRefresh = false}) async {
     if (_currentPosition == null) {
       await _loadLocationAndPlaces();
       return;
@@ -103,6 +123,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _errorCode = null;
       _selectedCategory = categoryKey;
       _selectedPlaceId = null;
     });
@@ -113,6 +134,7 @@ class _MapScreenState extends State<MapScreen> {
       category: categoryKey,
       radius: _searchRadius,
       limit: 25,
+      forceRefresh: forceRefresh,
     );
 
     if (!mounted) return;
@@ -122,6 +144,8 @@ class _MapScreenState extends State<MapScreen> {
       setState(() {
         _isLoading = false;
         _places = fetchedPlaces;
+        _isResultCached = res['cached'] == true;
+        _errorCode = null;
         _attribution = res['attribution']?.toString() ?? _attribution;
       });
 
@@ -136,6 +160,7 @@ class _MapScreenState extends State<MapScreen> {
     } else {
       setState(() {
         _isLoading = false;
+        _errorCode = res['code']?.toString();
         _errorMessage = res['message']?.toString() ?? 'Failed to retrieve nearby services.';
       });
     }
@@ -345,10 +370,10 @@ class _MapScreenState extends State<MapScreen> {
         },
       ),
       children: [
-        // Standard OpenStreetMap tiles (free, worldwide coverage, no proprietary API keys required)
+        // Standard OpenStreetMap / OpenFreeMap raster tiles (free, configurable)
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.ishaa21.nirbhay',
+          urlTemplate: ApiConfig.mapRasterTileUrl,
+          userAgentPackageName: ApiConfig.mapUserAgentPackage,
           maxZoom: 19,
         ),
         // Place and User Markers
@@ -657,20 +682,49 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ),
                   if (!_isLoading && _places.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _chipBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${_places.length} found',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _primary,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isResultCached)
+                          InkWell(
+                            onTap: () => _fetchPlacesForCategory(_selectedCategory, forceRefresh: true),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.history_rounded, size: 11, color: Colors.amber.shade900),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Cached',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _chipBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_places.length} found',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _primary,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                 ],
               ),
@@ -794,7 +848,7 @@ class _MapScreenState extends State<MapScreen> {
                 ? null
                 : () {
                     if (!isSelected) {
-                      _fetchPlacesForCategory(cat['key'] as String);
+                      _onCategorySelected(cat['key'] as String);
                     }
                   },
             child: AnimatedContainer(
@@ -905,19 +959,27 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Error message state with retry
   Widget _buildErrorMessageState() {
+    final isRateLimit = _errorCode == 'RATE_LIMITED';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
       child: Column(
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.redAccent),
+          Icon(
+            isRateLimit ? Icons.timer_outlined : Icons.cloud_off_rounded,
+            size: 48,
+            color: isRateLimit ? Colors.amber.shade800 : Colors.redAccent,
+          ),
           const SizedBox(height: 12),
-          const Text(
-            'Unable to Load Services',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _onSurface),
+          Text(
+            isRateLimit ? 'Public Rate Limit Reached' : 'Unable to Load Services',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _onSurface),
           ),
           const SizedBox(height: 6),
           Text(
-            _errorMessage ?? 'Network error. Please verify your internet connection.',
+            _errorMessage ??
+                (isRateLimit
+                    ? 'The public OpenStreetMap service is cooling down. Please retry in 30 seconds.'
+                    : 'Network error. Please verify your internet connection.'),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
           ),
@@ -929,9 +991,9 @@ class _MapScreenState extends State<MapScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
-            onPressed: () => _fetchPlacesForCategory(_selectedCategory),
+            onPressed: () => _fetchPlacesForCategory(_selectedCategory, forceRefresh: true),
             icon: const Icon(Icons.refresh, size: 16),
-            label: const Text('Try Again', style: TextStyle(fontSize: 12)),
+            label: Text(isRateLimit ? 'Retry Now' : 'Try Again', style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),

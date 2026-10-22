@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
 import '../services/journey_service.dart';
+import '../services/api_config.dart';
 import '../models/sos_model.dart';
 import '../models/journey_model.dart';
 
@@ -489,8 +490,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.ishaa21.nirbhay',
+                  urlTemplate: ApiConfig.mapRasterTileUrl,
+                  userAgentPackageName: ApiConfig.mapUserAgentPackage,
                   maxZoom: 19,
                 ),
                 if (lat != null && lng != null) ...[

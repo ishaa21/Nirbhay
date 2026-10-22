@@ -7,6 +7,8 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
+import '../services/nearby_service.dart';
+import 'package:geolocator/geolocator.dart';
 import 'map_screen.dart';
 import 'contacts_screen.dart';
 import 'profile_screen.dart';
@@ -48,6 +50,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isTogglingShake = false;
   StreamSubscription<ShakeSosEvent>? _shakeEventsSub;
   bool _isCountdownDialogShowing = false;
+  String _locationLabel = 'Acquiring location...';
+  bool _isLoadingLocation = false;
+  LocationResultType? _locationErrorType;
 
   @override
   void initState() {
@@ -61,6 +66,66 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
     _loadUserAndActiveSos();
     _initShakeSos();
+    _loadCurrentLocation();
+  }
+
+  /// Refreshes the user's real-world locality without blocking SOS or UI
+  Future<void> _loadCurrentLocation({bool forceRefresh = false}) async {
+    if (_isLoadingLocation && !forceRefresh) return;
+    if (mounted) {
+      setState(() {
+        _isLoadingLocation = true;
+        _locationErrorType = null;
+      });
+    }
+
+    final locResult = await NearbyService().getCurrentLocation();
+    if (!mounted) return;
+
+    if (locResult.type != LocationResultType.success || locResult.position == null) {
+      setState(() {
+        _isLoadingLocation = false;
+        _locationErrorType = locResult.type;
+        if (locResult.type == LocationResultType.permissionDenied ||
+            locResult.type == LocationResultType.permissionDeniedForever) {
+          _locationLabel = 'Location permission needed';
+        } else if (locResult.type == LocationResultType.serviceDisabled) {
+          _locationLabel = 'GPS is turned off';
+        } else {
+          _locationLabel = 'Location unavailable';
+        }
+      });
+      return;
+    }
+
+    final pos = locResult.position!;
+    final rev = await NearbyService().reverseGeocode(lat: pos.latitude, lng: pos.longitude);
+
+    if (!mounted) return;
+    final prefix = locResult.isLastKnown ? '(Last known) ' : '';
+    final locText = rev['formattedLocation']?.toString() ??
+        'GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
+
+    setState(() {
+      _isLoadingLocation = false;
+      _locationErrorType = null;
+      _locationLabel = '$prefix$locText';
+    });
+  }
+
+  Future<void> _onLocationTapped() async {
+    if (_locationErrorType == LocationResultType.permissionDeniedForever) {
+      await Geolocator.openAppSettings();
+      _loadCurrentLocation(forceRefresh: true);
+    } else if (_locationErrorType == LocationResultType.permissionDenied) {
+      await Geolocator.requestPermission();
+      _loadCurrentLocation(forceRefresh: true);
+    } else if (_locationErrorType == LocationResultType.serviceDisabled) {
+      await Geolocator.openLocationSettings();
+      _loadCurrentLocation(forceRefresh: true);
+    } else {
+      _loadCurrentLocation(forceRefresh: true);
+    }
   }
 
   Future<void> _loadUserAndActiveSos() async {
@@ -252,7 +317,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           color: const Color(0xFF7BC67A).withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
+                        child: Text(
                           'ACTIVE',
                           style: TextStyle(
                             fontSize: 9,
@@ -381,11 +446,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ─────────────────────────────────────────────────────────────────
   Widget _buildGreeting() {
     final name = _currentUser?.fullName.split(' ').first ?? 'User';
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Good evening, $name',
+          '$greeting, $name',
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -394,22 +466,61 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
         const SizedBox(height: 4),
-        Row(
-          children: const [
-            Icon(Icons.location_on_outlined, size: 14, color: _textSecondary),
-            SizedBox(width: 2),
-            Expanded(
-              child: Text(
-                'Near HSR Layout, Bangalore',
-                style: TextStyle(fontSize: 13, color: _textSecondary),
-                overflow: TextOverflow.ellipsis,
-              ),
+        InkWell(
+          onTap: _onLocationTapped,
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _locationErrorType != null
+                      ? Icons.location_off_outlined
+                      : Icons.location_on_outlined,
+                  size: 14,
+                  color: _locationErrorType != null
+                      ? Colors.orange.shade700
+                      : _textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    _locationLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _locationErrorType != null
+                          ? Colors.orange.shade800
+                          : _textSecondary,
+                      fontWeight: _locationErrorType != null
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (_isLoadingLocation) ...[
+                  const SizedBox(width: 6),
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: _sosDark,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.refresh, size: 12, color: _textSecondary),
+                ],
+              ],
             ),
-          ],
+          ),
         ),
       ],
     );
   }
+
 
   // ─────────────────────────────────────────────────────────────────
   //  SOS Button
@@ -881,8 +992,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 color: Colors.white.withOpacity(0.85),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'HSR Layout, Bangalore',
+              child: Text(
+                _locationLabel,
                 style: TextStyle(fontSize: 10, color: _textSecondary),
               ),
             ),
@@ -1218,7 +1329,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                 ),
-                child: const Text('View', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                child: Text('View', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ],
           ),

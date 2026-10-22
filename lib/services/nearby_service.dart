@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+// foundation unused
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../models/nearby_place_model.dart';
@@ -18,11 +18,13 @@ class LocationFetchResult {
   final LocationResultType type;
   final Position? position;
   final String? errorMessage;
+  final bool isLastKnown;
 
   const LocationFetchResult({
     required this.type,
     this.position,
     this.errorMessage,
+    this.isLastKnown = false,
   });
 }
 
@@ -30,6 +32,14 @@ class NearbyService {
   static final NearbyService _instance = NearbyService._internal();
   factory NearbyService() => _instance;
   NearbyService._internal();
+
+  // Client-side cache for places: `${gridLat}_${gridLng}_${category}_${radius}`
+  final Map<String, _CachedPlacesResult> _placesCache = {};
+  final Map<String, Future<Map<String, dynamic>>> _inflightPlaces = {};
+
+  // Client-side cache for reverse geocoding: `${gridLat}_${gridLng}`
+  final Map<String, _CachedReverseResult> _reverseCache = {};
+  final Map<String, Future<Map<String, dynamic>>> _inflightReverse = {};
 
   /// Safely obtains the user's current GPS location with fallbacks.
   Future<LocationFetchResult> getCurrentLocation() async {
@@ -77,12 +87,14 @@ class NearbyService {
         return LocationFetchResult(
           type: LocationResultType.success,
           position: fresh,
+          isLastKnown: false,
         );
       } catch (_) {
         if (fallback != null) {
           return LocationFetchResult(
             type: LocationResultType.success,
             position: fallback,
+            isLastKnown: true,
           );
         }
       }
@@ -98,36 +110,190 @@ class NearbyService {
         return LocationFetchResult(
           type: LocationResultType.success,
           position: medium,
+          isLastKnown: false,
         );
       } catch (_) {
         if (fallback != null) {
           return LocationFetchResult(
             type: LocationResultType.success,
             position: fallback,
+            isLastKnown: true,
           );
         }
       }
 
       return const LocationFetchResult(
         type: LocationResultType.error,
-        errorMessage: 'Could not obtain a GPS fix. Please ensure you are outdoors or near a window.',
+        errorMessage: 'Unable to acquire satellite GPS fix. Please ensure you have a clear view of the sky.',
       );
     } catch (e) {
-      debugPrint('[NearbyService] Location error: $e');
       return LocationFetchResult(
         type: LocationResultType.error,
-        errorMessage: 'An unexpected error occurred while accessing location: $e',
+        errorMessage: 'Unexpected location error: $e',
       );
     }
   }
 
+  /// Reverse geocodes coordinates to a human-readable locality / city name.
+  /// Uses client-side caching & request deduplication to minimize network calls.
+  Future<Map<String, dynamic>> reverseGeocode({
+    required double lat,
+    required double lng,
+    http.Client? client,
+  }) async {
+    // 300m grid key
+    final gridLat = (lat * 300).round() / 300;
+    final gridLng = (lng * 300).round() / 300;
+    final cacheKey = 'rev_${gridLat}_$gridLng';
+
+    final cached = _reverseCache[cacheKey];
+    if (cached != null && DateTime.now().difference(cached.timestamp).inMinutes < 15) {
+      return {
+        'success': true,
+        'cached': true,
+        'formattedLocation': cached.formattedLocation,
+        'locality': cached.locality,
+        'city': cached.city,
+        'state': cached.state,
+      };
+    }
+
+    if (_inflightReverse.containsKey(cacheKey)) {
+      return await _inflightReverse[cacheKey]!;
+    }
+
+    final future = _executeReverseGeocode(lat, lng, cacheKey, client);
+    _inflightReverse[cacheKey] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inflightReverse.remove(cacheKey);
+    }
+  }
+
+  Future<Map<String, dynamic>> _executeReverseGeocode(
+    double lat,
+    double lng,
+    String cacheKey,
+    http.Client? client,
+  ) async {
+    final httpClient = client ?? http.Client();
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/nearby/reverse')
+          .replace(queryParameters: {'lat': lat.toString(), 'lng': lng.toString()});
+
+      final response = await httpClient
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 7));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final formatted = data['formattedLocation']?.toString() ??
+              'GPS: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+
+          _reverseCache[cacheKey] = _CachedReverseResult(
+            timestamp: DateTime.now(),
+            formattedLocation: formatted,
+            locality: data['locality']?.toString(),
+            city: data['city']?.toString(),
+            state: data['state']?.toString(),
+          );
+
+          return {
+            'success': true,
+            'cached': false,
+            'formattedLocation': formatted,
+            'locality': data['locality']?.toString(),
+            'city': data['city']?.toString(),
+            'state': data['state']?.toString(),
+          };
+        }
+      }
+
+      // Fallback coordinate representation if upstream returned error
+      final fallbackFormatted = 'GPS: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+      return {
+        'success': true,
+        'cached': false,
+        'isFallback': true,
+        'formattedLocation': fallbackFormatted,
+      };
+    } catch (_) {
+      final fallbackFormatted = 'GPS: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+      return {
+        'success': true,
+        'cached': false,
+        'isFallback': true,
+        'formattedLocation': fallbackFormatted,
+      };
+    } finally {
+      if (client == null) {
+        httpClient.close();
+      }
+    }
+  }
+
   /// Fetches real nearby safety services from Nirbhay backend API.
+  /// Features client-side in-flight deduplication and category caching.
   Future<Map<String, dynamic>> fetchNearbyPlaces({
     required double lat,
     required double lng,
     String category = 'all',
     int radius = 5000,
     int limit = 20,
+    bool forceRefresh = false,
+    http.Client? client,
+  }) async {
+    final gridLat = (lat * 300).round() / 300;
+    final gridLng = (lng * 300).round() / 300;
+    final cacheKey = '${gridLat}_${gridLng}_${category}_$radius';
+
+    if (!forceRefresh) {
+      final cached = _placesCache[cacheKey];
+      if (cached != null && DateTime.now().difference(cached.timestamp).inMinutes < 5) {
+        return {
+          'success': true,
+          'cached': true,
+          'category': category,
+          'radius': radius,
+          'count': cached.places.length,
+          'places': cached.places,
+          'attribution': cached.attribution,
+        };
+      }
+    }
+
+    if (_inflightPlaces.containsKey(cacheKey)) {
+      return await _inflightPlaces[cacheKey]!;
+    }
+
+    final future = _executeFetchNearbyPlaces(
+      lat: lat,
+      lng: lng,
+      category: category,
+      radius: radius,
+      limit: limit,
+      cacheKey: cacheKey,
+      client: client,
+    );
+    _inflightPlaces[cacheKey] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inflightPlaces.remove(cacheKey);
+    }
+  }
+
+  Future<Map<String, dynamic>> _executeFetchNearbyPlaces({
+    required double lat,
+    required double lng,
+    required String category,
+    required int radius,
+    required int limit,
+    required String cacheKey,
     http.Client? client,
   }) async {
     final httpClient = client ?? http.Client();
@@ -166,13 +332,29 @@ class NearbyService {
             .map((p) => NearbyPlaceModel.fromJson(p as Map<String, dynamic>))
             .toList();
 
+        final attribution = data['attribution']?.toString() ??
+            'Data © OpenStreetMap contributors, ODbL 1.0';
+
+        _placesCache[cacheKey] = _CachedPlacesResult(
+          timestamp: DateTime.now(),
+          places: places,
+          attribution: attribution,
+        );
+
         return {
           'success': true,
+          'cached': data['cached'] == true,
           'category': data['category'] ?? category,
           'radius': data['radius'] ?? radius,
           'count': data['count'] ?? places.length,
           'places': places,
-          'attribution': data['attribution'] ?? 'Data © OpenStreetMap contributors, ODbL 1.0',
+          'attribution': attribution,
+        };
+      } else if (response.statusCode == 429) {
+        return {
+          'success': false,
+          'code': 'RATE_LIMITED',
+          'message': data['message'] ?? 'Rate limit reached. Please wait a moment before trying again.',
         };
       } else {
         return {
@@ -199,4 +381,37 @@ class NearbyService {
       }
     }
   }
+
+  void clearCache() {
+    _placesCache.clear();
+    _reverseCache.clear();
+  }
+}
+
+class _CachedPlacesResult {
+  final DateTime timestamp;
+  final List<NearbyPlaceModel> places;
+  final String attribution;
+
+  _CachedPlacesResult({
+    required this.timestamp,
+    required this.places,
+    required this.attribution,
+  });
+}
+
+class _CachedReverseResult {
+  final DateTime timestamp;
+  final String formattedLocation;
+  final String? locality;
+  final String? city;
+  final String? state;
+
+  _CachedReverseResult({
+    required this.timestamp,
+    required this.formattedLocation,
+    this.locality,
+    this.city,
+    this.state,
+  });
 }

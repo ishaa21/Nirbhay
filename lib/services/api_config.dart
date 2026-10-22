@@ -14,7 +14,6 @@ class ApiConfig {
   static const String _localDevUrl = '';
 
   static String get baseUrl {
-    // In debug mode, use local override if provided; otherwise use production.
     if (kDebugMode && _localDevUrl.isNotEmpty) {
       return _localDevUrl;
     }
@@ -29,4 +28,22 @@ class ApiConfig {
     }
     return api.replaceAll(RegExp(r'/api/?$'), '');
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Map Provider Configuration (OpenFreeMap & OpenStreetMap)
+  // ─────────────────────────────────────────────────────────────────────────
+  /// OpenFreeMap vector MapLibre style URL (Liberty / Positron)
+  static const String openFreeMapStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+
+  /// OpenStreetMap standard raster tile template
+  static const String mapRasterTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  /// Fast high-availability raster tile alternative (CartoDB Voyager)
+  static const String cartoRasterTileUrl = 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+  /// Application identifier for OSM tile usage policy
+  static const String mapUserAgentPackage = 'com.ishaa21.nirbhay';
+
+  /// Mandatory legal attribution for OpenStreetMap data & tiles
+  static const String mapAttribution = 'Data © OpenStreetMap contributors, ODbL 1.0';
 }
