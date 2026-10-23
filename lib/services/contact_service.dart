@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../models/emergency_contact_model.dart';
 import 'api_config.dart';
@@ -10,11 +13,49 @@ class EmergencyContactService {
   factory EmergencyContactService() => _instance;
   EmergencyContactService._internal();
 
-  /// Fetch all emergency contacts for current user
+  static const String _contactsCacheKey = 'nirbhay_cached_emergency_contacts';
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  List<EmergencyContactModel>? _memoryCache;
+
+  /// Fetch local cached emergency contacts without internet
+  Future<List<EmergencyContactModel>> getLocalContacts() async {
+    if (_memoryCache != null && _memoryCache!.isNotEmpty) {
+      return List<EmergencyContactModel>.from(_memoryCache!);
+    }
+    try {
+      final raw = await _storage.read(key: _contactsCacheKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List decoded = jsonDecode(raw);
+        _memoryCache = decoded
+            .map((e) => EmergencyContactModel.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        return List<EmergencyContactModel>.from(_memoryCache!);
+      }
+    } catch (e) {
+      debugPrint('[ContactService] Error reading local contacts: $e');
+    }
+    return _memoryCache != null ? List<EmergencyContactModel>.from(_memoryCache!) : [];
+  }
+
+  Future<void> _saveLocalContacts(List<EmergencyContactModel> contacts) async {
+    _memoryCache = List<EmergencyContactModel>.from(contacts);
+    try {
+      final jsonList = contacts.map((c) => c.toJson()).toList();
+      await _storage.write(key: _contactsCacheKey, value: jsonEncode(jsonList));
+    } catch (e) {
+      debugPrint('[ContactService] Error saving local contacts: $e');
+    }
+  }
+
+  /// Fetch all emergency contacts for current user (with offline fallback)
   Future<Map<String, dynamic>> fetchContacts() async {
     try {
       final token = await AuthService().getToken();
       if (token == null || token.isEmpty) {
+        final cached = await getLocalContacts();
+        if (cached.isNotEmpty) {
+          return {'success': true, 'contacts': cached, 'offline': true};
+        }
         return {'success': false, 'message': 'Not authenticated. Please log in.'};
       }
 
@@ -32,8 +73,13 @@ class EmergencyContactService {
       if (response.statusCode == 200) {
         final List rawList = data['contacts'] ?? [];
         final contacts = rawList.map((e) => EmergencyContactModel.fromJson(e)).toList();
+        await _saveLocalContacts(contacts);
         return {'success': true, 'contacts': contacts};
       } else {
+        final cached = await getLocalContacts();
+        if (cached.isNotEmpty) {
+          return {'success': true, 'contacts': cached, 'offline': true};
+        }
         String msg = data['message'] ?? 'Failed to load emergency contacts.';
         if (data['error'] != null) {
           msg += ' (${data['error']})';
@@ -43,12 +89,31 @@ class EmergencyContactService {
           'message': msg,
         };
       }
-    } on TimeoutException {
+    } on SocketException {
+      final cached = await getLocalContacts();
+      if (cached.isNotEmpty) {
+        return {'success': true, 'contacts': cached, 'offline': true};
+      }
       return {
         'success': false,
+        'offline': true,
+        'message': 'No internet connection. No cached emergency contacts found.',
+      };
+    } on TimeoutException {
+      final cached = await getLocalContacts();
+      if (cached.isNotEmpty) {
+        return {'success': true, 'contacts': cached, 'offline': true};
+      }
+      return {
+        'success': false,
+        'offline': true,
         'message': 'Request timed out. Please check your network connection.',
       };
     } catch (e) {
+      final cached = await getLocalContacts();
+      if (cached.isNotEmpty) {
+        return {'success': true, 'contacts': cached, 'offline': true};
+      }
       return {
         'success': false,
         'message': 'Connection error: Unable to reach backend server.',
@@ -88,6 +153,10 @@ class EmergencyContactService {
 
       if (response.statusCode == 201) {
         final newContact = EmergencyContactModel.fromJson(data['contact']);
+        final current = await getLocalContacts();
+        current.removeWhere((c) => c.id == newContact.id);
+        current.add(newContact);
+        await _saveLocalContacts(current);
         return {
           'success': true,
           'contact': newContact,
@@ -149,6 +218,14 @@ class EmergencyContactService {
 
       if (response.statusCode == 200) {
         final updatedContact = EmergencyContactModel.fromJson(data['contact']);
+        final current = await getLocalContacts();
+        final idx = current.indexWhere((c) => c.id == contactId);
+        if (idx != -1) {
+          current[idx] = updatedContact;
+        } else {
+          current.add(updatedContact);
+        }
+        await _saveLocalContacts(current);
         return {
           'success': true,
           'contact': updatedContact,
@@ -194,6 +271,9 @@ class EmergencyContactService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        final current = await getLocalContacts();
+        current.removeWhere((c) => c.id == contactId);
+        await _saveLocalContacts(current);
         return {
           'success': true,
           'id': contactId,

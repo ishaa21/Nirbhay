@@ -111,7 +111,10 @@ class DeviceSmsService {
     Set<String> clientRequestIds, {
     Duration timeout = const Duration(seconds: 45),
   }) async {
-    final deadline = DateTime.now().add(timeout);
+    final effectiveTimeout = simulateAndroidForTests
+        ? const Duration(milliseconds: 100)
+        : timeout;
+    final deadline = DateTime.now().add(effectiveTimeout);
     late StreamSubscription<Map<String, dynamic>> sub;
 
     sub = smsEvents.listen((event) {

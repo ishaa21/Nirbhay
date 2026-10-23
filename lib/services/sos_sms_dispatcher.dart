@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/emergency_contact_model.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
 import '../utils/phone_normalizer.dart';
@@ -23,6 +24,10 @@ class SosSmsDispatcher {
   final Set<String> _inFlightDispatchKeys = {};
   final Set<String> _completedNotificationIds = {};
 
+  /// Tracks incidents/sessions that have already dispatched an initial SOS alert SMS.
+  /// Used to prevent duplicate SMS dispatches when backend incident synchronization finishes.
+  final Set<String> _dispatchedSosAlertSessions = {};
+
   /// Build a stable key from the notification IDs in this batch.
   @visibleForTesting
   String dispatchKey(String sosId, List<dynamic> recipients) {
@@ -34,6 +39,83 @@ class SosSmsDispatcher {
     return '$sosId:${ids.join(",")}';
   }
 
+  /// Link an offline local incident ID with the backend server ID
+  /// so that duplicate SMS is not sent when backend registration syncs.
+  void linkIncidents(String localId, String backendId) {
+    if (_dispatchedSosAlertSessions.contains(localId)) {
+      _dispatchedSosAlertSessions.add(backendId);
+    }
+    if (_dispatchedSosAlertSessions.contains(backendId)) {
+      _dispatchedSosAlertSessions.add(localId);
+    }
+  }
+
+  @visibleForTesting
+  void clearDispatchedSessions() {
+    _dispatchedSosAlertSessions.clear();
+  }
+
+  /// Direct SIM SMS dispatch for emergency contacts without requiring prior backend call.
+  /// Operates purely on-device via native SmsManager.
+  Future<Map<String, dynamic>> dispatchDirectSms({
+    required String sosId,
+    required List<EmergencyContactModel> contacts,
+    required String messageBody,
+  }) async {
+    if (contacts.isEmpty) {
+      return {
+        'success': false,
+        'status': 'NO_CONTACTS',
+        'message': 'No emergency contacts configured to receive SMS alerts.',
+      };
+    }
+
+    if (!_deviceSms.isAndroid) {
+      debugPrint('[SOS SMS] Direct SIM SMS requires Android.');
+      return {
+        'success': false,
+        'status': 'NOT_ANDROID',
+        'message': 'Direct SMS is only available on Android.',
+      };
+    }
+
+    if (_dispatchedSosAlertSessions.contains(sosId)) {
+      debugPrint('[SOS SMS] Alert SMS already dispatched for incident $sosId.');
+      return {
+        'success': true,
+        'status': 'ALREADY_DISPATCHED',
+        'message': 'Alert SMS already dispatched for this SOS incident.',
+      };
+    }
+
+    final recipients = contacts.map((c) {
+      final normPhone = normalizePhoneNumber(c.phone);
+      return {
+        'notificationId': 'direct_${c.id}_${DateTime.now().millisecondsSinceEpoch}',
+        'contactId': c.id,
+        'contactName': c.name,
+        'contactPhone': c.phone,
+        'dispatchPhone': normPhone,
+        'simulateOnly': false,
+      };
+    }).toList();
+
+    await dispatchDeviceSmsPayload(
+      sosId: sosId,
+      deviceSms: {
+        'messageBody': messageBody,
+        'recipients': recipients,
+      },
+    );
+
+    return {
+      'success': true,
+      'status': 'DISPATCHED',
+      'recipientsCount': recipients.length,
+      'message': 'Emergency SMS dispatched directly via SIM.',
+    };
+  }
+
   Future<void> dispatchDeviceSmsPayload({
     required String sosId,
     required Map<String, dynamic>? deviceSms,
@@ -42,6 +124,27 @@ class SosSmsDispatcher {
 
     final recipients = (deviceSms['recipients'] as List?) ?? [];
     if (recipients.isEmpty) return;
+
+    final messageBody = deviceSms['messageBody']?.toString() ?? '';
+    final isResolve = messageBody.contains('RESOLVED') || messageBody.contains('SAFE');
+
+    // Deduplication check: if initial alert was already dispatched for this incident/session,
+    // skip re-transmitting duplicate SMS over cellular SIM, but report results to backend.
+    if (!isResolve && _dispatchedSosAlertSessions.contains(sosId)) {
+      debugPrint('[SOS SMS] SOS alert SMS already dispatched for incident $sosId. Skipping duplicate cellular dispatch.');
+      final reportList = recipients.map((r) {
+        final nid = (r as Map)['notificationId']?.toString() ?? '';
+        return {
+          'notificationId': nid,
+          'status': 'SENT',
+          'providerMessageId': 'DEVICE_DIRECT_SENT',
+        };
+      }).where((m) => (m['notificationId'] as String).isNotEmpty).toList();
+      if (reportList.isNotEmpty) {
+        await _reportResults(sosId, reportList);
+      }
+      return;
+    }
 
     final currentDispatchKey = dispatchKey(sosId, recipients);
     if (_inFlightDispatchKeys.contains(currentDispatchKey)) {
@@ -86,7 +189,6 @@ class SosSmsDispatcher {
         }
       }
 
-      final messageBody = deviceSms['messageBody']?.toString() ?? '';
       final toSend = <DeviceSmsMessage>[];
       final clientIdToNotification = <String, String>{};
 
@@ -132,6 +234,10 @@ class SosSmsDispatcher {
       }
 
       if (toSend.isEmpty) return;
+
+      if (!isResolve) {
+        _dispatchedSosAlertSessions.add(sosId);
+      }
 
       _deviceSms.clearOutcomes(toSend.map((m) => m.clientRequestId));
       final immediate = await _deviceSms.sendMessages(toSend);

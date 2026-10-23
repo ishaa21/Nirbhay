@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
 import 'auth_service.dart';
+import 'sos_service.dart';
 
 enum TrackingState {
   idle,
@@ -63,7 +64,6 @@ class LocationUpdateService {
   final List<Map<String, dynamic>> _offlineQueue = [];
 
   /// Minimum interval between consecutive HTTP uploads to preserve battery.
-  /// Can be tuned: 5s (high-frequency) to 30s (ultra battery saver).
   static const Duration _minUploadInterval = Duration(seconds: 10);
 
   /// Heartbeat interval to check GPS fix and upload even if movement stream is quiet.
@@ -197,6 +197,11 @@ class LocationUpdateService {
       ).listen(
         (Position position) {
           _lastPosition = position;
+          SosService.cacheLocationFix(
+            position.latitude,
+            position.longitude,
+            position.timestamp,
+          );
           _uploadPositionIfEligible(position);
         },
         onError: (err) {
@@ -228,6 +233,11 @@ class LocationUpdateService {
 
     if (pos != null) {
       _lastPosition = pos;
+      SosService.cacheLocationFix(
+        pos.latitude,
+        pos.longitude,
+        pos.timestamp,
+      );
       await _uploadPositionToBackend(pos);
     }
   }
@@ -251,6 +261,11 @@ class LocationUpdateService {
 
     if (pos != null) {
       _lastPosition = pos;
+      SosService.cacheLocationFix(
+        pos.latitude,
+        pos.longitude,
+        pos.timestamp,
+      );
       await _uploadPositionToBackend(pos);
     }
   }
@@ -279,6 +294,19 @@ class LocationUpdateService {
     };
 
     try {
+      // If the active SOS incident was created offline, attempt background sync first
+      if (_activeSosId != null && _activeSosId!.startsWith('offline_')) {
+        await SosService().syncPendingOfflineSos();
+        if (_activeSosId != null && _activeSosId!.startsWith('offline_')) {
+          // Still offline — buffer fix and return
+          if (_offlineQueue.length >= 20) {
+            _offlineQueue.removeAt(0);
+          }
+          _offlineQueue.add(currentFix);
+          return;
+        }
+      }
+
       final token = await AuthService().getToken();
       if (token == null || token.isEmpty) {
         _notify(TrackingState.authExpired, msg: 'No auth token available.');
