@@ -57,7 +57,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
     if (!_agreeToTerms) {
       setState(() {
-        _errorMessage = 'You must agree to the Terms of Service and Privacy Policy.';
+        _errorMessage = AppLocalizations.of(context).agreeTermsValidation;
       });
       return;
     }
@@ -85,7 +85,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         SnackBar(
           backgroundColor: const Color(0xFF301427),
           content: Text(
-            'Account created successfully! Welcome to Nirbhay, ${result['user']?.fullName ?? ''}.',
+            AppLocalizations.of(context).accountCreatedSuccessfullyWelcome(result['user']?.fullName ?? ''),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
@@ -103,7 +103,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
     } else {
       setState(() {
-        _errorMessage = result['message'] ?? 'Registration failed. Please check your details.';
+        _errorMessage = AppLocalizations.of(context).localizeBackendMessage(result['message'], fallback: AppLocalizations.of(context).registrationFailedDefault);
       });
     }
   }
@@ -301,10 +301,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
         const SizedBox(height: 4), // Reduced gap
-        const Text(
-          'Create an account to start your journey towards total security and peace of mind.',
+        Text(
+          AppLocalizations.of(context).signUpWelcomeSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13, // Slightly smaller for premium look
             color: Color(0xFF4E4449), // on-surface-variant
             height: 1.35,
@@ -351,13 +351,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 focusNode: _nameFocus,
                 keyboardType: TextInputType.name,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Enter your full name',
-                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).enterFullNameHint,
+                  prefixIcon: const Icon(Icons.person_outline, size: 20),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Full Name is required';
+                    return AppLocalizations.of(context).fullNameRequiredValidation;
                   }
                   return null;
                 },
@@ -382,17 +382,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 focusNode: _emailFocus,
                 keyboardType: TextInputType.emailAddress,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.mail_outline, size: 20),
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).emailAddressPlaceholder,
+                  prefixIcon: const Icon(Icons.mail_outline, size: 20),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Email Address is required';
+                    return AppLocalizations.of(context).emailAddressRequiredValidation;
                   }
                   final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
                   if (!emailRegex.hasMatch(value.trim())) {
-                    return 'Enter a valid email address';
+                    return AppLocalizations.of(context).enterValidEmailValidation;
                   }
                   return null;
                 },
@@ -417,13 +417,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 focusNode: _phoneFocus,
                 keyboardType: TextInputType.phone,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: '+91 00000-00000',
-                  prefixIcon: Icon(Icons.call_outlined, size: 20),
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).phoneNumberPlaceholder,
+                  prefixIcon: const Icon(Icons.call_outlined, size: 20),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Phone number is required';
+                    return AppLocalizations.of(context).phoneNumberRequiredValidation;
                   }
                   return null;
                 },
@@ -449,7 +449,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 obscureText: _obscurePassword,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Create a strong password',
+                  hintText: AppLocalizations.of(context).createStrongPasswordHint,
                   prefixIcon: const Icon(Icons.lock_outline, size: 20),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -465,10 +465,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Password is required';
+                    return AppLocalizations.of(context).passwordRequiredValidation;
                   }
                   if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
+                    return AppLocalizations.of(context).passwordMin6CharsValidation;
                   }
                   return null;
                 },
@@ -497,30 +497,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
+                    text: TextSpan(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF4E4449),
                         height: 1.3,
                       ),
                       children: [
-                        TextSpan(text: 'I agree to the '),
+                        TextSpan(text: AppLocalizations.of(context).agreeTermsPrefix),
                         TextSpan(
-                          text: 'Terms',
-                          style: TextStyle(
+                          text: AppLocalizations.of(context).termsOfServiceShort,
+                          style: const TextStyle(
                             color: Color(0xFF301427),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        TextSpan(text: ' and '),
+                        TextSpan(text: AppLocalizations.of(context).andWord),
                         TextSpan(
-                          text: 'Privacy Policy',
-                          style: TextStyle(
+                          text: AppLocalizations.of(context).privacyPolicyShort,
+                          style: const TextStyle(
                             color: Color(0xFF301427),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        TextSpan(text: '.'),
+                        const TextSpan(text: '.'),
                       ],
                     ),
                   ),
@@ -627,10 +627,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                'OR SIGN UP WITH',
-                style: TextStyle(
+                AppLocalizations.of(context).orSignUpWithDivider,
+                style: const TextStyle(
                   fontSize: 10.5,
-                  color: const Color(0xFF807479),
+                  color: Color(0xFF807479),
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.1,
                 ),

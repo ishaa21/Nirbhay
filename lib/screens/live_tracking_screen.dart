@@ -198,8 +198,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Nirbhay',
               style: TextStyle(
                 fontSize: 16,
@@ -208,8 +208,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               ),
             ),
             Text(
-              'Live Journey Tracking',
-              style: TextStyle(
+              AppLocalizations.of(context).liveJourneyTracking,
+              style: const TextStyle(
                 fontSize: 12,
                 color: _onSurfaceVariant,
                 fontWeight: FontWeight.normal,
@@ -268,34 +268,35 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     final state = tracking.state;
     final hasActiveIncident = _activeIncident != null;
     final hasActiveJourney = _activeJourney != null;
+    final l10n = AppLocalizations.of(context);
 
     String title = hasActiveIncident
-        ? 'Emergency Shield Active'
-        : (hasActiveJourney ? 'Journey Shield Active' : 'Journey Shield Standby');
+        ? l10n.emergencyShieldActive
+        : (hasActiveJourney ? l10n.journeyShieldActive : l10n.journeyShieldStandby);
     String subtitle;
     if (state == TrackingState.gpsDisabled) {
-      subtitle = 'GPS is disabled. Please enable device location.';
+      subtitle = l10n.gpsDisabledSubtitle;
     } else if (state == TrackingState.permissionDenied) {
-      subtitle = 'Location permission denied. Please grant permission.';
+      subtitle = l10n.locationPermSubtitle;
     } else if (state == TrackingState.authExpired) {
-      subtitle = 'Session expired. Please log in again.';
+      subtitle = l10n.sessionExpiredSubtitle;
     } else if (isStale && (hasActiveIncident || hasActiveJourney)) {
-      subtitle = '⚠️ Location Stale — ${_formatRelativeTime(lastUpload)}';
+      subtitle = '⚠️ ${l10n.locationStale} — ${_formatRelativeTime(lastUpload)}';
     } else if ((hasActiveIncident || hasActiveJourney) && pos != null) {
-      subtitle = 'Live stream active • ${_formatRelativeTime(lastUpload)}';
+      subtitle = '${l10n.liveStreamActive} • ${_formatRelativeTime(lastUpload)}';
     } else if (hasActiveIncident || hasActiveJourney) {
-      subtitle = 'Acquiring high-accuracy GPS fix...';
+      subtitle = l10n.acquiringGpsFix;
     } else {
-      subtitle = 'No active journey or emergency. Tap SOS if in danger.';
+      subtitle = l10n.noActiveJourneyOrEmergency;
     }
 
     String accuracyText = (hasActiveIncident || hasActiveJourney)
-        ? (pos != null ? '±${pos.accuracy.toStringAsFixed(0)}m' : 'Locating')
-        : 'Standby';
+        ? (pos != null ? '±${pos.accuracy.toStringAsFixed(0)}m' : l10n.locating)
+        : l10n.standby;
     if (state == TrackingState.gpsDisabled) {
-      accuracyText = 'No GPS';
+      accuracyText = l10n.noGps;
     } else if (state == TrackingState.permissionDenied) {
-      accuracyText = 'No Perm';
+      accuracyText = l10n.noPerm;
     }
 
     return Container(
@@ -600,19 +601,19 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               backgroundColor: Colors.white.withOpacity(0.95),
               child: IconButton(
                 icon: const Icon(Icons.my_location, color: _primary, size: 20),
-                tooltip: 'Recenter on live location',
+                tooltip: AppLocalizations.of(context).recenterLiveLocation,
                 onPressed: () {
                   if (lat != null && lng != null) {
                     try {
                       _mapController.move(LatLng(lat, lng), 16.0);
                     } catch (_) {}
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Centered on live position.')),
+                      SnackBar(content: Text(AppLocalizations.of(context).translate('centeredOnLivePosition'))),
                     );
                   } else {
                     _initDeviceLocation();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Acquiring current GPS location...')),
+                      SnackBar(content: Text(AppLocalizations.of(context).acquiringGpsFix)),
                     );
                   }
                   if (_activeIncident != null || _activeJourney != null) {
@@ -722,9 +723,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     color: Colors.black.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
-                    'Hold 2s',
-                    style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                  child: Text(
+                    AppLocalizations.of(context).translate('hold2s'),
+                    style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -777,9 +778,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'REAL-TIME TELEMETRY',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).realTimeTelemetry,
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -790,7 +791,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     Text(
                       pos != null
                           ? '${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}'
-                          : 'Awaiting Satellite Lock',
+                          : AppLocalizations.of(context).awaitingSatelliteLock,
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
@@ -800,7 +801,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     Text(
                       pos != null
                           ? 'Accuracy: ±${pos.accuracy.toStringAsFixed(1)}m • Fix: ${_formatRelativeTime(lastUpload)}'
-                          : 'Ensure device GPS is turned on with clear sky view',
+                          : AppLocalizations.of(context).ensureGpsClearSky,
                       style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
                     ),
                   ],
@@ -843,7 +844,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 child: _buildTelemetryBadge(
                   icon: Icons.speed,
                   title: paceText,
-                  subtitle: 'Speed',
+                  subtitle: AppLocalizations.of(context).speed,
                 ),
               ),
               const SizedBox(width: 8),
@@ -851,7 +852,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 child: _buildTelemetryBadge(
                   icon: Icons.gps_fixed,
                   title: accuracyText,
-                  subtitle: 'GPS Accuracy',
+                  subtitle: AppLocalizations.of(context).gpsAccuracy,
                   isPrimaryText: true,
                 ),
               ),
@@ -860,7 +861,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 child: _buildTelemetryBadge(
                   icon: Icons.access_time_filled,
                   title: _formatRelativeTime(lastUpload),
-                  subtitle: 'Last Sync',
+                  subtitle: AppLocalizations.of(context).lastSync,
                 ),
               ),
             ],
@@ -885,14 +886,14 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'Route Deviation Alarm',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _onSurface),
+                        AppLocalizations.of(context).translate('routeDeviationAlarm'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _onSurface),
                       ),
                       Text(
-                        'Alert guardians if drift exceeds 150m',
-                        style: TextStyle(fontSize: 11, color: _onSurfaceVariant),
+                        AppLocalizations.of(context).translate('alertGuardiansDrift'),
+                        style: const TextStyle(fontSize: 11, color: _onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -1004,7 +1005,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   size: 18,
                 ),
                 label: Text(
-                  hasActiveSos ? AppLocalizations.of(context).translate('checkIn') : (hasActiveJourney ? AppLocalizations.of(context).translate('endJourneyButton') : 'No Journey'),
+                  hasActiveSos ? AppLocalizations.of(context).translate('checkIn') : (hasActiveJourney ? AppLocalizations.of(context).translate('endJourneyButton') : AppLocalizations.of(context).noJourney),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -1047,8 +1048,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Journey active since ${_formatJourneyDuration(_activeJourney!.startedAt)}  •  '  
-                    '${_activeJourney!.destination != null ? "To: ${_activeJourney!.destination}" : "No destination set"}',
+                    '${AppLocalizations.of(context).journeyActiveSinceDuration(_formatJourneyDuration(_activeJourney!.startedAt))}  '  
+                    '${_activeJourney!.destination != null ? "${AppLocalizations.of(context).to}: ${_activeJourney!.destination}" : AppLocalizations.of(context).noDestinationSet}',
                     style: const TextStyle(fontSize: 11, color: _onSurfaceVariant),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1084,18 +1085,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       if (url.isNotEmpty) {
         Clipboard.setData(ClipboardData(text: url));
       }
-      final notif = res['notifications'] as Map<String, dynamic>?;
-      final smsNote = notif != null
-          ? (notif['status'] == 'NOT_CONFIGURED'
-              ? ' SMS gateway not configured on server.'
-              : (notif['sentCount'] != null && (notif['sentCount'] as num) + (notif['pendingCount'] as num? ?? 0) > 0
-                  ? ' Guardians notified via SMS.'
-                  : ''))
-          : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Journey started! Live link${url.isNotEmpty ? ' copied to clipboard' : ' generated'}.$smsNote',
+            AppLocalizations.of(context).journeyStartedLiveLink,
           ),
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
@@ -1119,7 +1112,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
     if (lat == null || lng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No GPS fix available yet to open in Google Maps.')),
+        SnackBar(content: Text(AppLocalizations.of(context).translate('noGpsFixToOpenMap'))),
       );
       return;
     }
@@ -1130,7 +1123,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch Google Maps.')),
+          SnackBar(content: Text(AppLocalizations.of(context).translate('couldNotLaunchGoogleMaps'))),
         );
       }
     } catch (e) {
@@ -1145,8 +1138,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       _showShareModal(url);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No active journey or SOS. Tap "Start Journey & Share" first.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).noActiveJourneyOrSos),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1180,19 +1173,19 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  children: const [
-                    Icon(Icons.share_location, color: _primary, size: 24),
-                    SizedBox(width: 10),
+                  children: [
+                    const Icon(Icons.share_location, color: _primary, size: 24),
+                    const SizedBox(width: 10),
                     Text(
-                      'Share Live Journey Tracking',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _primary),
+                      AppLocalizations.of(context).shareLiveJourneyTracking,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _primary),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Anyone with this link can view your live route and safety status in real time.',
-                  style: TextStyle(fontSize: 13, color: _onSurfaceVariant),
+                Text(
+                  AppLocalizations.of(context).translate('shareModalSubtitle'),
+                  style: const TextStyle(fontSize: 13, color: _onSurfaceVariant),
                 ),
                 const SizedBox(height: 14),
                 // URL display & Copy box
@@ -1231,15 +1224,15 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                           Clipboard.setData(ClipboardData(text: url));
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Live tracking link copied to clipboard!'),
-                              backgroundColor: Color(0xFF2E7D32),
+                            SnackBar(
+                              content: Text(AppLocalizations.of(context).liveTrackingLinkCopied),
+                              backgroundColor: const Color(0xFF2E7D32),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
                         },
                         icon: const Icon(Icons.copy, size: 15),
-                        label: const Text('Copy', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(AppLocalizations.of(context).copy, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -1259,22 +1252,21 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         ),
                         onPressed: () async {
                           Navigator.pop(ctx);
-                          final msg = Uri.encodeComponent(
-                            'I am traveling and sharing my live journey with you for safety via Nirbhay:\n$url',
-                          );
+                          final textBody = AppLocalizations.of(context).liveJourneySharingSmsVal(url);
+                          final msg = Uri.encodeComponent(textBody);
                           final waUri = Uri.parse('https://wa.me/?text=$msg');
                           try {
                             await launchUrl(waUri, mode: LaunchMode.externalApplication);
                           } catch (_) {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Could not launch WhatsApp.')),
+                                SnackBar(content: Text(AppLocalizations.of(context).translate('couldNotLaunchWhatsApp'))),
                               );
                             }
                           }
                         },
                         icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                        label: const Text('WhatsApp', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        label: Text(AppLocalizations.of(context).shareWhatsApp, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1289,16 +1281,15 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         ),
                         onPressed: () async {
                           Navigator.pop(ctx);
-                          final msg = Uri.encodeComponent(
-                            'I am traveling and sharing my live journey with you for safety via Nirbhay:\n$url',
-                          );
+                          final textBody = AppLocalizations.of(context).liveJourneySharingSmsVal(url);
+                          final msg = Uri.encodeComponent(textBody);
                           final smsUri = Uri.parse('sms:?body=$msg');
                           try {
                             await launchUrl(smsUri, mode: LaunchMode.externalApplication);
                           } catch (_) {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Could not launch SMS.')),
+                                SnackBar(content: Text(AppLocalizations.of(context).translate('couldNotLaunchSms'))),
                               );
                             }
                           }
@@ -1324,7 +1315,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                           } catch (_) {}
                         },
                         icon: const Icon(Icons.open_in_browser, size: 18),
-                        label: const Text('Open', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        label: Text(AppLocalizations.of(context).open, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -1344,16 +1335,16 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Resolve Emergency SOS?'),
-        content: const Text(
-          'This will inform your emergency contacts that you are safe now and stop live location tracking.',
+        title: Text(AppLocalizations.of(context).translate('resolveSosPrompt')),
+        content: Text(
+          AppLocalizations.of(context).translate('resolveJourneyDesc'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('I am Safe Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).imSafeNow, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1369,9 +1360,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       LocationUpdateService().stop();
       setState(() => _activeIncident = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('SOS resolved. "User is safe" SMS sent to emergency contacts.'),
-          backgroundColor: Color(0xFF2E7D32),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).sosResolvedSafeSms),
+          backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1392,25 +1383,25 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
-          children: const [
-            Icon(Icons.stop_circle_outlined, color: Color(0xFFBA1A1A)),
-            SizedBox(width: 8),
+          children: [
+            const Icon(Icons.stop_circle_outlined, color: Color(0xFFBA1A1A)),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'End Live Journey?',
-                style: TextStyle(color: _primary, fontWeight: FontWeight.bold, fontSize: 17),
+                AppLocalizations.of(context).endJourneyTitle,
+                style: const TextStyle(color: _primary, fontWeight: FontWeight.bold, fontSize: 17),
               ),
             ),
           ],
         ),
-        content: const Text(
-          'Are you sure you want to end your journey? Live location sharing with guardians will stop.',
-          style: TextStyle(fontSize: 14, color: _onSurfaceVariant),
+        content: Text(
+          AppLocalizations.of(context).translate('endJourneyDesc'),
+          style: const TextStyle(fontSize: 14, color: _onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Keep Tracking', style: TextStyle(color: _onSurfaceVariant, fontWeight: FontWeight.w600)),
+            child: Text(AppLocalizations.of(context).keepTracking, style: const TextStyle(color: _onSurfaceVariant, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1423,7 +1414,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               Navigator.of(ctx).pop();
               await _endActiveJourney();
             },
-            child: const Text('End Journey', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).endJourneyAction, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1442,9 +1433,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       setState(() => _activeJourney = null);
       LocationUpdateService().stopJourneyTracking();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Journey ended safely. Live tracking stopped.'),
-          backgroundColor: Color(0xFF2E7D32),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).journeyEndedSafely),
+          backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1459,7 +1450,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
   Future<void> _triggerEmergencySOS() async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Activating SOS Emergency Alert...')),
+      SnackBar(content: Text(AppLocalizations.of(context).translate('activatingSosAlert'))),
     );
 
     final res = await SosService().createSos();
@@ -1475,32 +1466,32 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
-            children: const [
-              Icon(Icons.warning, color: _error),
-              SizedBox(width: 8),
-              Text('EMERGENCY SOS ACTIVATED', style: TextStyle(color: _error, fontWeight: FontWeight.bold, fontSize: 16)),
+            children: [
+              const Icon(Icons.warning, color: _error),
+              const SizedBox(width: 8),
+              Text(AppLocalizations.of(context).sosEmergencyActivated, style: const TextStyle(color: _error, fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           content: Text(
-            'Emergency alert #${incident.id.substring(0, 8)} has been activated on the network and dispatched to emergency contacts.',
+            AppLocalizations.of(context).sosDispatchedNetworkMessage(incident.id.substring(0, 8)),
             style: const TextStyle(color: _onSurface),
           ),
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: _error),
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK', style: TextStyle(color: Colors.white)),
+              child: Text(AppLocalizations.of(context).ok, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
       );
     } else if (res['alreadyActive'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An active SOS emergency incident is already in progress.')),
+        SnackBar(content: Text(AppLocalizations.of(context).activeSosAlreadyInProgress)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Failed to activate SOS emergency alert.')),
+        SnackBar(content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToTriggerSosAlert))),
       );
     }
   }

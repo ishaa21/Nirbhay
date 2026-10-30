@@ -100,6 +100,16 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  String _getInitials() {
+    final name = _userProfile?.fullName.trim();
+    if (name == null || name.isEmpty) return 'NB';
+    final parts = name.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
   // ─────────────────────────────────────────────────────────────────
   //  Profile Header Card
   // ─────────────────────────────────────────────────────────────────
@@ -140,10 +150,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: _secondaryContainer,
-                        child: const Center(
+                        child: Center(
                           child: Text(
-                            'AS',
-                            style: TextStyle(
+                            _getInitials(),
+                            style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
                               color: _primary,
@@ -219,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _badgeAnimController.forward(from: 0.0);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('Your Safety Score is dynamically calculated based on active contacts and alert readiness.'),
+                    content: Text(AppLocalizations.of(context).safetyScoreDesc),
                     backgroundColor: _primary,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -275,11 +285,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Text(
-            'ACCOUNT & SECURITY',
-            style: TextStyle(
+            AppLocalizations.of(context).accountAndSecurity,
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: _primary,
@@ -306,20 +316,20 @@ class _ProfileScreenState extends State<ProfileScreen>
               children: [
                 _buildMenuItemTile(
                   icon: Icons.person_outline_rounded,
-                  title: 'Personal Info',
-                  onTap: () => _showMenuBottomSheet('Personal Info', 'Manage your name, phone number, and emergency contacts profile.'),
+                  title: AppLocalizations.of(context).personalInfo,
+                  onTap: () => _showMenuBottomSheet(AppLocalizations.of(context).personalInfo, AppLocalizations.of(context).personalInfoDesc),
                   showDivider: true,
                 ),
                 _buildMenuItemTile(
                   icon: Icons.gpp_maybe_outlined,
-                  title: 'Safety Settings',
+                  title: AppLocalizations.of(context).safetySettings,
                   onTap: () => _showSafetySettingsBottomSheet(),
                   showDivider: true,
                 ),
                 _buildMenuItemTile(
                   icon: Icons.notifications_active_outlined,
-                  title: 'Notifications',
-                  onTap: () => _showMenuBottomSheet('Notifications', 'Customize push notifications, SMS alerts, and sound preferences.'),
+                  title: AppLocalizations.of(context).notifications,
+                  onTap: () => _showMenuBottomSheet(AppLocalizations.of(context).notifications, AppLocalizations.of(context).notificationsDesc),
                   showDivider: false,
                 ),
               ],
@@ -337,11 +347,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Text(
-            'PREFERENCES',
-            style: TextStyle(
+            AppLocalizations.of(context).preferences.toUpperCase(),
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: _primary,
@@ -381,15 +391,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 _buildMenuItemTile(
                   icon: Icons.palette_outlined,
-                  title: 'App Theme',
-                  trailingText: _currentTheme,
+                  title: AppLocalizations.of(context).appTheme,
+                  trailingText: _currentTheme == 'Light' ? AppLocalizations.of(context).lightMode : AppLocalizations.of(context).darkMode,
                   onTap: () {
                     setState(() {
                       _currentTheme = _currentTheme == 'Light' ? 'Dark' : 'Light';
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Theme switched to $_currentTheme mode'),
+                        content: Text(AppLocalizations.of(context).themeSwitchedMode(_currentTheme == 'Light' ? AppLocalizations.of(context).lightMode : AppLocalizations.of(context).darkMode)),
                         duration: const Duration(seconds: 2),
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -399,8 +409,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 _buildMenuItemTile(
                   icon: Icons.help_center_outlined,
-                  title: 'Help & Support',
-                  onTap: () => _showMenuBottomSheet('Help & Support', 'Reach out to 24/7 Nirbhay helpline or read safety guidelines.'),
+                  title: AppLocalizations.of(context).helpAndSupport,
+                  onTap: () => _showMenuBottomSheet(AppLocalizations.of(context).helpAndSupport, AppLocalizations.of(context).helpAndSupportSubtitle),
                   showDivider: false,
                 ),
               ],
@@ -513,14 +523,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.logout_rounded, size: 22),
-                SizedBox(width: 8),
+                const Icon(Icons.logout_rounded, size: 22),
+                const SizedBox(width: 8),
                 Text(
-                  'Log Out',
-                  style: TextStyle(
+                  AppLocalizations.of(context).logout,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
@@ -530,18 +540,18 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Nirbhay App',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context).nirbhayAppHeading,
+          style: const TextStyle(
             fontSize: 11,
             color: _outline,
             fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 2),
-        const Text(
-          'Version 2.4.1 (Build 1082)',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context).versionText,
+          style: const TextStyle(
             fontSize: 11,
             color: _outlineVariant,
             fontWeight: FontWeight.w500,
@@ -596,12 +606,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
-                        children: const [
-                          Icon(Icons.gpp_maybe_outlined, color: _primary, size: 24),
-                          SizedBox(width: 8),
+                        children: [
+                          const Icon(Icons.gpp_maybe_outlined, color: _primary, size: 24),
+                          const SizedBox(width: 8),
                           Text(
-                            'Safety Settings',
-                            style: TextStyle(
+                            AppLocalizations.of(context).safetySettings,
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: _primary,
@@ -630,21 +640,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                           children: [
                             const Icon(Icons.vibration, color: _primary, size: 22),
                             const SizedBox(width: 10),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Shake-to-SOS Detection',
-                                    style: TextStyle(
+                                    AppLocalizations.of(context).shakeSosDetectionTitle,
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
                                       color: _onSurface,
                                     ),
                                   ),
                                   Text(
-                                    'Detect shakes in background & lock screen',
-                                    style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
+                                    AppLocalizations.of(context).shakeBackgroundLock,
+                                    style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
                                   ),
                                 ],
                               ),
@@ -678,18 +688,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                         if (isShakeEnabled) ...[
                           const Divider(height: 24),
-                          const Text(
-                            'Shake Sensitivity',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _onSurface),
+                          Text(
+                            AppLocalizations.of(context).shakeSensitivity,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _onSurface),
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: ['LOW', 'DEFAULT', 'HIGH'].map((lvl) {
                               final isSelected = sensitivity == lvl;
+                              final label = lvl == 'LOW'
+                                  ? AppLocalizations.of(context).sensitivityLow
+                                  : (lvl == 'HIGH'
+                                      ? AppLocalizations.of(context).sensitivityHigh
+                                      : AppLocalizations.of(context).sensitivityDefault);
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
-                                  label: Text(lvl, style: TextStyle(
+                                  label: Text(label, style: TextStyle(
                                     fontSize: 12,
                                     color: isSelected ? Colors.white : _onSurfaceVariant,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -720,7 +735,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: Text(AppLocalizations.of(context).done, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -785,7 +800,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                   ),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Got it', style: TextStyle(color: Colors.white)),
+                  child: Text(AppLocalizations.of(context).gotItBtn, style: const TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -801,12 +816,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Log Out', style: TextStyle(color: _primary, fontWeight: FontWeight.bold)),
-          content: const Text('Are you sure you want to log out of Nirbhay?'),
+          title: Text(AppLocalizations.of(context).logOutTitle, style: const TextStyle(color: _primary, fontWeight: FontWeight.bold)),
+          content: Text(AppLocalizations.of(context).confirmLogout),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
+              child: Text(AppLocalizations.of(context).cancel, style: const TextStyle(color: _onSurfaceVariant)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -823,7 +838,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   MaterialPageRoute(builder: (_) => const SignInScreen()),
                 );
               },
-              child: const Text('Log Out', style: TextStyle(color: Colors.white)),
+              child: Text(AppLocalizations.of(context).logOutTitle, style: const TextStyle(color: Colors.white)),
             ),
           ],
         );

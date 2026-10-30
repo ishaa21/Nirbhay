@@ -18,6 +18,7 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _surface,
       appBar: AppBar(
@@ -39,7 +40,7 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
               ),
             ),
             Text(
-              AppLocalizations.of(context).translate('safetyTips'),
+              l10n.safetyTips,
               style: TextStyle(
                 fontSize: 12,
                 color: _onSurfaceVariant,
@@ -65,21 +66,21 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Row(
                       children: [
-                        Icon(Icons.lightbulb_outline, color: Color(0xFFFFD8ED), size: 24),
-                        SizedBox(width: 8),
+                        const Icon(Icons.lightbulb_outline, color: Color(0xFFFFD8ED), size: 24),
+                        const SizedBox(width: 8),
                         Text(
-                          'Empowerment & Precautions',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          l10n.empowermentPrecautions,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      'Practical, expert-recommended safety protocols for daily commutes, night travel, and public transit.',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFFE7BAD3), height: 1.4),
+                      l10n.empowermentPrecautionsSub,
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFFE7BAD3), height: 1.4),
                     ),
                   ],
                 ),
@@ -88,41 +89,41 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
 
               // Categories
               Text(
-                AppLocalizations.of(context).translate('safetyTips'),
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
+                l10n.safetyTips,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
               ),
               const SizedBox(height: 12),
 
               _buildTipCategory(
-                title: 'Night Travel & Cab Safety',
+                title: l10n.tipCatNightTravel,
                 icon: Icons.nightlife,
                 tips: [
-                  'Always check vehicle registration plate & driver photo matches ride app details before stepping in.',
-                  'Enable Nirbhay Live Tracking to auto-share your real-time GPS location with your guardians.',
-                  'Sit directly behind the driver to remain out of immediate arm reach in taxis.',
-                  'Keep your phone battery above 30% and volume turned up during late-night transit.',
+                  l10n.tipNightTravel1,
+                  l10n.tipNightTravel2,
+                  l10n.tipNightTravel3,
+                  l10n.tipNightTravel4,
                 ],
               ),
               const SizedBox(height: 12),
 
               _buildTipCategory(
-                title: 'Public Transport & Metro Safety',
+                title: l10n.tipCatPublicTransit,
                 icon: Icons.subway,
                 tips: [
-                  'Locate CISF/Security kiosks and emergency call buttons on Metro platforms.',
-                  'Stay in well-lit areas near group commuters or designated women coaches.',
-                  'If followed, head towards station station-master desks or active shops immediately.',
+                  l10n.tipPublicTransit1,
+                  l10n.tipPublicTransit2,
+                  l10n.tipPublicTransit3,
                 ],
               ),
               const SizedBox(height: 12),
 
               _buildTipCategory(
-                title: 'Digital & Cyber Protection',
+                title: l10n.tipCatDigitalCyber,
                 icon: Icons.phonelink_lock,
                 tips: [
-                  'Never share real-time location on public social media until after leaving a location.',
-                  'Report cyber-harassment, morphing, or stalking immediately to 1930 Cyber Cell.',
-                  'Use two-factor authentication on all social media and messaging apps.',
+                  l10n.tipDigitalCyber1,
+                  l10n.tipDigitalCyber2,
+                  l10n.tipDigitalCyber3,
                 ],
               ),
               const SizedBox(height: 24),

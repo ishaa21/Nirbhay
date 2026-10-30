@@ -52,7 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isTogglingShake = false;
   StreamSubscription<ShakeSosEvent>? _shakeEventsSub;
   bool _isCountdownDialogShowing = false;
-  String _locationLabel = 'Acquiring location...';
+  String _locationLabel = 'acquiring';
   bool _isLoadingLocation = false;
   LocationResultType? _locationErrorType;
 
@@ -90,11 +90,11 @@ class _DashboardScreenState extends State<DashboardScreen>
         _locationErrorType = locResult.type;
         if (locResult.type == LocationResultType.permissionDenied ||
             locResult.type == LocationResultType.permissionDeniedForever) {
-          _locationLabel = 'Location permission needed';
+          _locationLabel = 'permission_needed';
         } else if (locResult.type == LocationResultType.serviceDisabled) {
-          _locationLabel = 'GPS is turned off';
+          _locationLabel = 'gps_off';
         } else {
-          _locationLabel = 'Location unavailable';
+          _locationLabel = 'location_unavailable';
         }
       });
       return;
@@ -256,8 +256,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         SnackBar(
           content: Text(
             success
-                ? (value ? 'Shake-to-SOS background detection enabled' : 'Shake-to-SOS disabled')
-                : 'Failed to update Shake-to-SOS service',
+                ? (value ? AppLocalizations.of(context).shakeSosBgEnabled : AppLocalizations.of(context).shakeSosBgDisabled)
+                : AppLocalizations.of(context).failedToUpdateShakeService,
           ),
           backgroundColor: success ? const Color(0xFF2A1020) : const Color(0xFFD32F2F),
         ),
@@ -304,7 +304,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Row(
                   children: [
                     Text(
-                      AppLocalizations.of(context).shakeToSos,
+                      AppLocalizations.of(context).shakeToTriggerSos,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -320,8 +320,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'ACTIVE',
-                          style: TextStyle(
+                          AppLocalizations.of(context).translate('active').toUpperCase(),
+                          style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF2E7D32),
@@ -402,9 +402,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Logo text
-          const Text(
-            'NIRBHAY',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).appName.toUpperCase(),
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               letterSpacing: 2.5,
@@ -415,7 +415,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                tooltip: 'Language',
+                tooltip: AppLocalizations.of(context).language,
                 onPressed: () => LanguageSelectionScreen.show(context),
                 icon: const Icon(
                   Icons.translate_rounded,
@@ -669,7 +669,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'Failed to trigger SOS alert.'),
+          content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToTriggerSosAlert)),
           backgroundColor: const Color(0xFFD32F2F),
         ),
       );
@@ -684,19 +684,19 @@ class _DashboardScreenState extends State<DashboardScreen>
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
-          children: const [
-            Icon(Icons.warning, color: Color(0xFFD32F2F), size: 28),
-            SizedBox(width: 8),
-            Text('SOS Emergency Activated', style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+          children: [
+            const Icon(Icons.warning, color: Color(0xFFD32F2F), size: 28),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context).sosEmergencyActivatedTitle, style: const TextStyle(color: _textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Your emergency alert has been recorded on the Nirbhay safety network.',
-              style: TextStyle(color: _textSecondary, fontSize: 13),
+            Text(
+              AppLocalizations.of(context).sosEmergencyRecordedNetwork,
+              style: const TextStyle(color: _textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 12),
             Container(
@@ -708,14 +708,14 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Incident ID: ${incident.id.substring(0, 8)}...', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textPrimary)),
+                  Text(AppLocalizations.of(context).incidentIdVal(incident.id), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textPrimary)),
                   const SizedBox(height: 4),
-                  Text('Status: ${incident.status}', style: const TextStyle(fontSize: 12, color: Color(0xFFD32F2F), fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(context).statusWithVal(incident.status), style: const TextStyle(fontSize: 12, color: Color(0xFFD32F2F), fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(
                     incident.latitude != null 
                         ? 'Location: ${incident.latitude!.toStringAsFixed(4)}, ${incident.longitude!.toStringAsFixed(4)}'
-                        : 'Location: Pending/Unavailable',
+                        : AppLocalizations.of(context).sosLocationPending,
                     style: const TextStyle(fontSize: 12, color: _textSecondary),
                   ),
                 ],
@@ -729,12 +729,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               Navigator.of(ctx).pop();
               _handleCancel(incident.id);
             },
-            child: const Text('Cancel SOS', style: TextStyle(color: _textSecondary)),
+            child: Text(AppLocalizations.of(context).cancelSos, style: const TextStyle(color: _textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2A1020)),
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context).ok, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -748,14 +748,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
-          children: const [
-            Icon(Icons.shield, color: Color(0xFFD32F2F)),
-            SizedBox(width: 8),
-            Text('Active SOS Incident', style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold)),
+          children: [
+            const Icon(Icons.shield, color: Color(0xFFD32F2F)),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context).activeSosIncident, style: const TextStyle(color: _textPrimary, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Text(
-          'An emergency SOS alert triggered at ${incident.activatedAt.toLocal().toString().split('.')[0]} is currently active.',
+          AppLocalizations.of(context).sosActivePromptVal(incident.activatedAt.toLocal().toString().split('.')[0]),
           style: const TextStyle(color: _textSecondary),
         ),
         actions: [
@@ -764,7 +764,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Navigator.of(ctx).pop();
               _handleCancel(incident.id);
             },
-            child: const Text('Cancel SOS', style: TextStyle(color: _textSecondary)),
+            child: Text(AppLocalizations.of(context).cancelSos, style: const TextStyle(color: _textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
@@ -772,7 +772,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Navigator.of(ctx).pop();
               _handleResolve(incident.id);
             },
-            child: const Text('Resolve SOS', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context).resolveSosPrompt, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -790,16 +790,16 @@ class _DashboardScreenState extends State<DashboardScreen>
         LocationUpdateService().stop();
         setState(() => _activeSosIncident = null);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('SOS resolved. "User is safe" SMS sent to emergency contacts.'),
-            backgroundColor: Color(0xFF2E7D32),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).sosResolvedSafe),
+            backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(res['message'] ?? 'Failed to resolve SOS.'),
+            content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToResolveSos)),
             backgroundColor: const Color(0xFFD32F2F),
             behavior: SnackBarBehavior.floating,
           ),
@@ -820,14 +820,14 @@ class _DashboardScreenState extends State<DashboardScreen>
       LocationUpdateService().stop();
       setState(() => _activeSosIncident = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('SOS incident CANCELLED.'),
-          backgroundColor: Color(0xFF424242),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).sosIncidentCancelled),
+          backgroundColor: const Color(0xFF424242),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Failed to cancel SOS.')),
+        SnackBar(content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToCancelSos))),
       );
     }
   }
@@ -906,12 +906,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           subtitle = l10n.safetyTimerSubtitle;
         } else if (route == 'live_tracking') {
           title = l10n.liveJourney;
-          subtitle = l10n.liveJourneySubtitle;
+          subtitle = l10n.translate('liveJourneySubtitle');
         } else if (route == 'fake_call') {
           title = l10n.fakeCall;
           subtitle = l10n.fakeCallSubtitle;
         } else if (route == 'helplines') {
-          title = l10n.emergencyHelplines;
+          title = l10n.helplines;
           subtitle = l10n.translate('localEmergencyContacts');
         } else if (route == 'safety_tips') {
           title = l10n.translate('safetyTips');
@@ -1030,10 +1030,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                 color: Colors.white.withOpacity(0.85),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(
-                _locationLabel,
-                style: TextStyle(fontSize: 10, color: _textSecondary),
-              ),
+              child: Builder(builder: (context) {
+                final l10n = AppLocalizations.of(context);
+                String label = _locationLabel;
+                if (label == 'acquiring') {
+                  label = l10n.acquiringLocation;
+                } else if (label == 'permission_needed') {
+                  label = l10n.locationPermissionNeeded;
+                } else if (label == 'gps_off') {
+                  label = l10n.gpsTurnedOff;
+                } else if (label == 'location_unavailable') {
+                  label = l10n.locationUnavailable;
+                }
+                return Text(
+                  label,
+                  style: TextStyle(fontSize: 10, color: _textSecondary),
+                );
+              }),
             ),
           ),
         ],
@@ -1120,10 +1133,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: const Icon(Icons.warning, color: Colors.white, size: 18),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'ACTIVE SOS EMERGENCY INCIDENT',
-                  style: TextStyle(
+                  AppLocalizations.of(context).translate('activeSosIncidentBanner'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,
@@ -1135,13 +1148,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(height: 10),
           Text(
-            'Activated: ${incident.activatedAt.toLocal().toString().split('.')[0]}',
+            '${AppLocalizations.of(context).sosDispatchedAt}: ${incident.activatedAt.toLocal().toString().split('.')[0]}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFE0E0E0)),
           ),
           if (incident.latitude != null && incident.longitude != null) ...[
             const SizedBox(height: 2),
             Text(
-              'Location: ${incident.latitude!.toStringAsFixed(4)}, ${incident.longitude!.toStringAsFixed(4)}',
+              '${AppLocalizations.of(context).translate('location')}: ${incident.latitude!.toStringAsFixed(4)}, ${incident.longitude!.toStringAsFixed(4)}',
               style: const TextStyle(fontSize: 12, color: Color(0xFFBBAFB5)),
             ),
           ],
@@ -1162,13 +1175,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                     border: Border.all(color: const Color(0xFFE57373), width: 1),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.share_location_outlined, color: Color(0xFFFF8A80), size: 16),
-                      SizedBox(width: 8),
+                    children: [
+                      const Icon(Icons.share_location_outlined, color: Color(0xFFFF8A80), size: 16),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Share Live Tracking Link with Guardians',
-                          style: TextStyle(
+                          AppLocalizations.of(context).shareLiveTrackingLinkGuardians,
+                          style: const TextStyle(
                             color: Color(0xFFFF8A80),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -1200,7 +1213,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.check_circle_outline, size: 16),
-                  label: Text(_isResolvingSos ? 'Resolving...' : 'Resolve', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: Text(_isResolvingSos ? AppLocalizations.of(context).resolvingProgress : AppLocalizations.of(context).resolveSosPrompt, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1213,7 +1226,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   onPressed: () => _handleCancel(incident.id),
                   icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: Text(AppLocalizations.of(context).cancel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
               ),
             ],
@@ -1242,10 +1255,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     Clipboard.setData(ClipboardData(text: url));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tracking link copied to clipboard!'),
-          backgroundColor: Color(0xFF2A1020),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).trackingLinkCopied),
+          backgroundColor: const Color(0xFF2A1020),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -1292,7 +1305,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  warning ? 'SAFETY TIMER EXPIRING SOON' : 'ACTIVE SAFETY TIMER',
+                  warning ? AppLocalizations.of(context).safetyTimerExpiringSoonBanner : AppLocalizations.of(context).activeSafetyTimerBanner,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
@@ -1320,7 +1333,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(height: 10),
           Text(
-            'Auto-alerts contacts if not checked in by ${timer.expiresAt.toLocal().hour.toString().padLeft(2, '0')}:${timer.expiresAt.toLocal().minute.toString().padLeft(2, '0')}.',
+            AppLocalizations.of(context).autoAlertsAtTimeVal(timer.expiresAt),
             style: const TextStyle(fontSize: 12, color: Color(0xFFE0E0E0)),
           ),
           const SizedBox(height: 12),
@@ -1333,9 +1346,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     if (res['success'] == true) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('✅ Checked in! You are marked safe.'),
-                            backgroundColor: Color(0xFF2E7D32),
+                          SnackBar(
+                            content: Text(AppLocalizations.of(context).checkedInSafeSuccessSnack),
+                            backgroundColor: const Color(0xFF2E7D32),
                           ),
                         );
                       }
@@ -1343,9 +1356,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     }
                   },
                   icon: const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-                  label: const Text(
-                    'I\'m Safe (Check In)',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  label: Text(
+                    AppLocalizations.of(context).checkInSafe,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E7D32),
@@ -1367,7 +1380,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                 ),
-                child: Text('View', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                child: Text(AppLocalizations.of(context).translate('view'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ],
           ),

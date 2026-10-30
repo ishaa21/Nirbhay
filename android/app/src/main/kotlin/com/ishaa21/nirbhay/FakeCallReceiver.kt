@@ -183,10 +183,10 @@ class FakeCallReceiver : BroadcastReceiver() {
 
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Incoming Fake Calls",
+                LocaleHelper.getString(context, R.string.fake_call_channel_name),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Incoming call alert for Nirbhay Fake Call quick escape"
+                description = LocaleHelper.getString(context, R.string.fake_call_channel_desc)
                 enableLights(true)
                 lightColor = Color.GREEN
                 enableVibration(true)
@@ -249,7 +249,7 @@ class FakeCallReceiver : BroadcastReceiver() {
             .setSmallIcon(android.R.drawable.sym_call_incoming)
             .setLargeIcon(avatarBitmap)
             .setContentTitle(callerName)
-            .setContentText("Incoming call ($callerSubtitle)")
+            .setContentText(LocaleHelper.getString(context, R.string.fake_call_incoming_text, callerSubtitle))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -258,8 +258,8 @@ class FakeCallReceiver : BroadcastReceiver() {
             .setContentIntent(fullScreenPendingIntent)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setDeleteIntent(declinePendingIntent)
-            .addAction(android.R.drawable.ic_menu_call, "Accept", acceptPendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
+            .addAction(android.R.drawable.ic_menu_call, LocaleHelper.getString(context, R.string.fake_call_action_accept), acceptPendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, LocaleHelper.getString(context, R.string.fake_call_action_decline), declinePendingIntent)
             .build()
 
         try {

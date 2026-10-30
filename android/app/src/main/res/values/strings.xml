@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nirbhay</string>
+    <string name="fake_call_channel_name">Incoming Fake Calls</string>
+    <string name="fake_call_channel_desc">Incoming call alert for Nirbhay Fake Call quick escape</string>
+    <string name="fake_call_incoming_text">Incoming call (%1$s)</string>
+    <string name="fake_call_action_accept">Accept</string>
+    <string name="fake_call_action_decline">Decline</string>
+    <string name="shake_activity_title">SHAKE DETECTED</string>
+    <string name="shake_activity_subtitle">Emergency SOS alert will send in:</string>
+    <string name="shake_activity_seconds">SECONDS</string>
+    <string name="shake_activity_cancel_btn">CANCEL SOS (I AM SAFE)</string>
+    <string name="shake_activity_cancelling">CANCELLING…</string>
+    <string name="shake_activity_cancelled_toast">Emergency SOS cancelled. No alerts sent.</string>
+    <string name="shake_notif_monitor_title">Nirbhay Shake Detection Active</string>
+    <string name="shake_notif_monitor_text">Emergency shake detection is running in the background.</string>
+    <string name="shake_notif_countdown_title">🚨 EMERGENCY SOS COUNTDOWN</string>
+    <string name="shake_notif_countdown_text">Shake detected! SOS alert will send in %1$d seconds.</string>
+    <string name="shake_notif_action_cancel">CANCEL SOS</string>
+    <string name="shake_notif_triggered_title">🚨 EMERGENCY SOS TRIGGERED</string>
+    <string name="shake_notif_triggered_text">Emergency contacts &amp; services have been alerted with your live location.</string>
+    <string name="shake_channel_monitor_name">Shake Detection Service</string>
+    <string name="shake_channel_monitor_desc">Ongoing background monitoring for Nirbhay shake detection</string>
+    <string name="shake_channel_countdown_name">Emergency SOS Countdown</string>
+    <string name="shake_channel_countdown_desc">Active 15-second SOS countdown after shake detection</string>
+</resources>

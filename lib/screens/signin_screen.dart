@@ -68,7 +68,7 @@ class _SignInScreenState extends State<SignInScreen> {
         SnackBar(
           backgroundColor: const Color(0xFF301427),
           content: Text(
-            'Signed in successfully! Welcome back, ${result['user']?.fullName ?? ''}.',
+            AppLocalizations.of(context).signedInSuccessfullyWelcome(result['user']?.fullName ?? ''),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
@@ -86,7 +86,7 @@ class _SignInScreenState extends State<SignInScreen> {
       );
     } else {
       setState(() {
-        _errorMessage = result['message'] ?? 'Sign in failed. Please check your credentials.';
+        _errorMessage = AppLocalizations.of(context).localizeBackendMessage(result['message'], fallback: AppLocalizations.of(context).signInFailedDefault);
       });
     }
   }
@@ -285,10 +285,10 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Sign in to continue your journey towards total security and peace of mind.',
+        Text(
+          AppLocalizations.of(context).signInWelcomeSubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13,
             color: Color(0xFF4E4449), // on-surface-variant
             height: 1.35,
@@ -335,13 +335,13 @@ class _SignInScreenState extends State<SignInScreen> {
                 focusNode: _emailFocus,
                 keyboardType: TextInputType.emailAddress,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.mail_outline, size: 20),
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).emailAddressPlaceholder,
+                  prefixIcon: const Icon(Icons.mail_outline, size: 20),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Email is required';
+                    return AppLocalizations.of(context).emailRequiredValidation;
                   }
                   return null;
                 },
@@ -367,7 +367,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 obscureText: _obscurePassword,
                 style: const TextStyle(color: Color(0xFF1B1B1C), fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Enter your password',
+                  hintText: AppLocalizations.of(context).enterPasswordHint,
                   prefixIcon: const Icon(Icons.lock_outline, size: 20),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -383,7 +383,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Password is required';
+                    return AppLocalizations.of(context).passwordRequiredValidation;
                   }
                   return null;
                 },
@@ -489,10 +489,10 @@ class _SignInScreenState extends State<SignInScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                'OR CONTINUE WITH',
-                style: TextStyle(
+                AppLocalizations.of(context).orContinueWithDivider,
+                style: const TextStyle(
                   fontSize: 10.5,
-                  color: const Color(0xFF807479),
+                  color: Color(0xFF807479),
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.1,
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 enum CommunityCategory {
   suspiciousActivity,
@@ -30,6 +31,27 @@ extension CommunityCategoryExtension on CommunityCategory {
         return 'HELPFUL_INFO';
       case CommunityCategory.other:
         return 'OTHER';
+    }
+  }
+
+  String localizedLabel(AppLocalizations l10n) {
+    switch (this) {
+      case CommunityCategory.suspiciousActivity:
+        return l10n.catSuspiciousActivity;
+      case CommunityCategory.harassment:
+        return l10n.catHarassment;
+      case CommunityCategory.unsafeArea:
+        return l10n.catUnsafeArea;
+      case CommunityCategory.theft:
+        return l10n.catTheft;
+      case CommunityCategory.roadSafety:
+        return l10n.catRoadSafety;
+      case CommunityCategory.lostPerson:
+        return l10n.catLostPerson;
+      case CommunityCategory.helpfulInfo:
+        return l10n.catHelpfulInfo;
+      case CommunityCategory.other:
+        return l10n.catOther;
     }
   }
 

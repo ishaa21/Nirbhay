@@ -323,8 +323,8 @@ class ShakeDetectionService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_MONITOR_ID)
-            .setContentTitle("Nirbhay Shake Detection Active")
-            .setContentText("Emergency shake detection is running in the background.")
+            .setContentTitle(LocaleHelper.getString(this, R.string.shake_notif_monitor_title))
+            .setContentText(LocaleHelper.getString(this, R.string.shake_notif_monitor_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -365,8 +365,8 @@ class ShakeDetectionService : Service() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_COUNTDOWN_ID)
-            .setContentTitle("🚨 EMERGENCY SOS COUNTDOWN")
-            .setContentText("Shake detected! SOS alert will send in $remainingSeconds seconds.")
+            .setContentTitle(LocaleHelper.getString(this, R.string.shake_notif_countdown_title))
+            .setContentText(LocaleHelper.getString(this, R.string.shake_notif_countdown_text, remainingSeconds))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -383,7 +383,7 @@ class ShakeDetectionService : Service() {
             // CANCEL SOS notification action: works even when phone is locked
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "CANCEL SOS",
+                LocaleHelper.getString(this, R.string.shake_notif_action_cancel),
                 cancelPendingIntent,
             )
             .build()
@@ -409,8 +409,8 @@ class ShakeDetectionService : Service() {
             )
 
             val notification = NotificationCompat.Builder(this, CHANNEL_COUNTDOWN_ID)
-                .setContentTitle("🚨 EMERGENCY SOS TRIGGERED")
-                .setContentText("Emergency contacts & services have been alerted with your live location.")
+                .setContentTitle(LocaleHelper.getString(this, R.string.shake_notif_triggered_title))
+                .setContentText(LocaleHelper.getString(this, R.string.shake_notif_triggered_text))
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -450,10 +450,10 @@ class ShakeDetectionService : Service() {
             // Monitoring channel (silent, low priority)
             val monitorChannel = NotificationChannel(
                 CHANNEL_MONITOR_ID,
-                "Shake Detection Service",
+                LocaleHelper.getString(this, R.string.shake_channel_monitor_name),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Ongoing background monitoring for Nirbhay shake detection"
+                description = LocaleHelper.getString(this@ShakeDetectionService, R.string.shake_channel_monitor_desc)
                 setShowBadge(false)
             }
 
@@ -461,10 +461,10 @@ class ShakeDetectionService : Service() {
             // allow the system to attempt full-screen intent display on lock screen.
             val countdownChannel = NotificationChannel(
                 CHANNEL_COUNTDOWN_ID,
-                "Emergency SOS Countdown",
+                LocaleHelper.getString(this, R.string.shake_channel_countdown_name),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Active 15-second SOS countdown after shake detection"
+                description = LocaleHelper.getString(this@ShakeDetectionService, R.string.shake_channel_countdown_desc)
                 enableVibration(true)
                 setShowBadge(true)
             }

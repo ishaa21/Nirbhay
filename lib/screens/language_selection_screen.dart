@@ -111,7 +111,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'All languages are available 100% offline. Emergency alerts and SOS SMS will use your selected language.',
+                        l10n.offlineLanguageNotice,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.amber.shade900,

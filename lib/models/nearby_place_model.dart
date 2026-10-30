@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 class NearbyPlaceModel {
   final String id;
@@ -130,6 +131,15 @@ class NearbyPlaceModel {
       return openingHours!;
     }
     return 'Hours Unavailable';
+  }
+
+  String localizedDisplayStatus(AppLocalizations l10n) {
+    if (isOpen == true) return l10n.openNow;
+    if (openingHours != null && openingHours!.isNotEmpty) {
+      if (openingHours!.toLowerCase().contains('24/7')) return l10n.open247;
+      return openingHours!;
+    }
+    return l10n.hoursUnavailable;
   }
 
   bool get isVerifiedOpen {

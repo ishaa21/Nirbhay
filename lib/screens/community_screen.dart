@@ -160,7 +160,7 @@ class _CommunityScreenState extends State<CommunityScreen>
       if (!serviceEnabled) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enable device location to view nearby alerts.')),
+          SnackBar(content: Text(AppLocalizations.of(context).enableLocationNearbyAlerts)),
         );
         setState(() => _isLocating = false);
         return;
@@ -172,7 +172,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         if (perm == LocationPermission.denied) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission is required to sort alerts by proximity.')),
+            SnackBar(content: Text(AppLocalizations.of(context).locationPermProximitySort)),
           );
           setState(() => _isLocating = false);
           return;
@@ -197,7 +197,7 @@ class _CommunityScreenState extends State<CommunityScreen>
       if (!mounted) return;
       setState(() => _isLocating = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not obtain location: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context).couldNotObtainLocationErr(e.toString()))),
       );
     }
   }
@@ -377,7 +377,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           ],
         ),
         IconButton(
-          tooltip: 'Refresh',
+          tooltip: AppLocalizations.of(context).refresh,
           onPressed: () => _fetchFeed(resetPage: true),
           icon: const Icon(Icons.refresh_rounded, color: _primary),
         ),
@@ -530,7 +530,7 @@ class _CommunityScreenState extends State<CommunityScreen>
       child: Row(
         children: [
           _buildSortChip(
-            label: 'Latest',
+            label: AppLocalizations.of(context).filterLatest,
             icon: Icons.access_time_rounded,
             isSelected: _selectedSort == 'latest',
             onTap: () {
@@ -542,7 +542,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           ),
           const SizedBox(width: 8),
           _buildSortChip(
-            label: _isLocating ? 'Locating...' : 'Nearby',
+            label: _isLocating ? AppLocalizations.of(context).filterLocating : AppLocalizations.of(context).filterNearby,
             icon: Icons.near_me_outlined,
             isSelected: _selectedSort == 'nearby',
             onTap: () {
@@ -558,7 +558,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           ),
           const SizedBox(width: 8),
           _buildSortChip(
-            label: 'Most Upvoted',
+            label: AppLocalizations.of(context).filterMostUpvoted,
             icon: Icons.thumb_up_alt_outlined,
             isSelected: _selectedSort == 'most_upvoted',
             onTap: () {
@@ -611,16 +611,17 @@ class _CommunityScreenState extends State<CommunityScreen>
   }
 
   Widget _buildCategoryFilterCarousel() {
+    final l10n = AppLocalizations.of(context);
     final categories = [
-      {'key': 'ALL', 'label': 'All', 'icon': Icons.apps_rounded},
-      {'key': 'SUSPICIOUS_ACTIVITY', 'label': 'Suspicious Activity', 'icon': Icons.visibility_outlined},
-      {'key': 'HARASSMENT', 'label': 'Harassment', 'icon': Icons.shield_outlined},
-      {'key': 'UNSAFE_AREA', 'label': 'Unsafe Area', 'icon': Icons.warning_amber_rounded},
-      {'key': 'THEFT', 'label': 'Theft', 'icon': Icons.lock_outline},
-      {'key': 'ROAD_SAFETY', 'label': 'Road Safety', 'icon': Icons.traffic_outlined},
-      {'key': 'LOST_PERSON', 'label': 'Lost Person', 'icon': Icons.person_search_outlined},
-      {'key': 'HELPFUL_INFO', 'label': 'Helpful Info', 'icon': Icons.info_outline},
-      {'key': 'OTHER', 'label': 'Other', 'icon': Icons.category_outlined},
+      {'key': 'ALL', 'label': l10n.catAll, 'icon': Icons.apps_rounded},
+      {'key': 'SUSPICIOUS_ACTIVITY', 'label': l10n.catSuspiciousActivity, 'icon': Icons.visibility_outlined},
+      {'key': 'HARASSMENT', 'label': l10n.catHarassment, 'icon': Icons.shield_outlined},
+      {'key': 'UNSAFE_AREA', 'label': l10n.catUnsafeArea, 'icon': Icons.warning_amber_rounded},
+      {'key': 'THEFT', 'label': l10n.catTheft, 'icon': Icons.lock_outline},
+      {'key': 'ROAD_SAFETY', 'label': l10n.catRoadSafety, 'icon': Icons.traffic_outlined},
+      {'key': 'LOST_PERSON', 'label': l10n.catLostPerson, 'icon': Icons.person_search_outlined},
+      {'key': 'HELPFUL_INFO', 'label': l10n.catHelpfulInfo, 'icon': Icons.info_outline},
+      {'key': 'OTHER', 'label': l10n.catOther, 'icon': Icons.category_outlined},
     ];
 
     return SizedBox(
@@ -717,7 +718,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                           Icon(post.category.icon, size: 13, color: catColor),
                           const SizedBox(width: 4),
                           Text(
-                            post.category.label,
+                            post.category.localizedLabel(AppLocalizations.of(context)),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -748,34 +749,37 @@ class _CommunityScreenState extends State<CommunityScreen>
                       },
                       itemBuilder: (ctx) => [
                         if (post.isOwner) ...[
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit_outlined, size: 18, color: _primary),
-                                SizedBox(width: 8),
-                                Text('Edit Report'),
+                                const Icon(Icons.edit_outlined, size: 18, color: _primary),
+                                const SizedBox(width: 8),
+                                Text(AppLocalizations.of(context).editReport),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline, size: 18, color: Color(0xFFBA1A1A)),
-                                SizedBox(width: 8),
-                                Text('Delete Report', style: TextStyle(color: Color(0xFFBA1A1A))),
+                                const Icon(Icons.delete_outline, size: 18, color: Color(0xFFBA1A1A)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  AppLocalizations.of(context).deleteReport,
+                                  style: const TextStyle(color: Color(0xFFBA1A1A)),
+                                ),
                               ],
                             ),
                           ),
                         ] else ...[
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'report',
                             child: Row(
                               children: [
-                                Icon(Icons.flag_outlined, size: 18, color: Color(0xFFBA1A1A)),
-                                SizedBox(width: 8),
-                                Text('Report Inappropriate'),
+                                const Icon(Icons.flag_outlined, size: 18, color: Color(0xFFBA1A1A)),
+                                const SizedBox(width: 8),
+                                Text(AppLocalizations.of(context).reportInappropriateAction),
                               ],
                             ),
                           ),
@@ -959,12 +963,12 @@ class _CommunityScreenState extends State<CommunityScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Safety Report?'),
-        content: const Text('Are you sure you want to remove this report from the community feed?'),
+        title: Text(AppLocalizations.of(context).deleteSafetyReportPrompt),
+        content: Text(AppLocalizations.of(context).deleteSafetyReportConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
+            child: Text(AppLocalizations.of(context).cancel, style: const TextStyle(color: _onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFBA1A1A)),
@@ -975,15 +979,15 @@ class _CommunityScreenState extends State<CommunityScreen>
               if (res['success'] == true) {
                 setState(() => _posts.removeWhere((p) => p.id == postId));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Report deleted successfully.')),
+                  SnackBar(content: Text(AppLocalizations.of(context).reportDeletedSuccess)),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(res['message'] ?? 'Failed to delete report.')),
+                  SnackBar(content: Text(res['message'] ?? AppLocalizations.of(context).failedToDeleteReport)),
                 );
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context).delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -998,89 +1002,92 @@ class _CommunityScreenState extends State<CommunityScreen>
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Report Inappropriate Content', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Help keep Nirbhay reliable and safe. Select the primary reason for reporting this post:',
-                  style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
-                ),
-                const SizedBox(height: 12),
-                RadioListTile<String>(
-                  title: const Text('Inaccurate or False Info', style: TextStyle(fontSize: 13)),
-                  value: 'INACCURATE',
-                  groupValue: selectedReason,
-                  activeColor: _primary,
-                  onChanged: (val) => setDialogState(() => selectedReason = val!),
-                ),
-                RadioListTile<String>(
-                  title: const Text('Harassment or Abusive', style: TextStyle(fontSize: 13)),
-                  value: 'ABUSIVE',
-                  groupValue: selectedReason,
-                  activeColor: _primary,
-                  onChanged: (val) => setDialogState(() => selectedReason = val!),
-                ),
-                RadioListTile<String>(
-                  title: const Text('Spam or Advertising', style: TextStyle(fontSize: 13)),
-                  value: 'SPAM',
-                  groupValue: selectedReason,
-                  activeColor: _primary,
-                  onChanged: (val) => setDialogState(() => selectedReason = val!),
-                ),
-                RadioListTile<String>(
-                  title: const Text('Dangerous or Incitement', style: TextStyle(fontSize: 13)),
-                  value: 'DANGEROUS',
-                  groupValue: selectedReason,
-                  activeColor: _primary,
-                  onChanged: (val) => setDialogState(() => selectedReason = val!),
-                ),
-                RadioListTile<String>(
-                  title: const Text('Doxxing / Personal Phone Numbers', style: TextStyle(fontSize: 13)),
-                  value: 'DOXXING',
-                  groupValue: selectedReason,
-                  activeColor: _primary,
-                  onChanged: (val) => setDialogState(() => selectedReason = val!),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: detailsController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    hintText: 'Additional details (optional)...',
-                    hintStyle: TextStyle(fontSize: 12),
-                    border: OutlineInputBorder(),
+        builder: (context, setDialogState) {
+          final l10n = AppLocalizations.of(context);
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(l10n.reportInappropriateContent, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.reportInappropriateDialogDesc,
+                    style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  RadioListTile<String>(
+                    title: Text(l10n.reasonInaccurate, style: const TextStyle(fontSize: 13)),
+                    value: 'INACCURATE',
+                    groupValue: selectedReason,
+                    activeColor: _primary,
+                    onChanged: (val) => setDialogState(() => selectedReason = val!),
+                  ),
+                  RadioListTile<String>(
+                    title: Text(l10n.reasonHarassment, style: const TextStyle(fontSize: 13)),
+                    value: 'ABUSIVE',
+                    groupValue: selectedReason,
+                    activeColor: _primary,
+                    onChanged: (val) => setDialogState(() => selectedReason = val!),
+                  ),
+                  RadioListTile<String>(
+                    title: Text(l10n.reasonSpam, style: const TextStyle(fontSize: 13)),
+                    value: 'SPAM',
+                    groupValue: selectedReason,
+                    activeColor: _primary,
+                    onChanged: (val) => setDialogState(() => selectedReason = val!),
+                  ),
+                  RadioListTile<String>(
+                    title: Text(l10n.reasonDangerous, style: const TextStyle(fontSize: 13)),
+                    value: 'DANGEROUS',
+                    groupValue: selectedReason,
+                    activeColor: _primary,
+                    onChanged: (val) => setDialogState(() => selectedReason = val!),
+                  ),
+                  RadioListTile<String>(
+                    title: Text(l10n.reasonDoxxing, style: const TextStyle(fontSize: 13)),
+                    value: 'DOXXING',
+                    groupValue: selectedReason,
+                    activeColor: _primary,
+                    onChanged: (val) => setDialogState(() => selectedReason = val!),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: detailsController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: l10n.additionalDetailsOptional,
+                      hintStyle: const TextStyle(fontSize: 12),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFBA1A1A)),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final res = await CommunityService().reportPost(
-                  postId,
-                  reason: selectedReason,
-                  details: detailsController.text.trim(),
-                );
-                scaffold.showSnackBar(
-                  SnackBar(content: Text(res['message'] ?? 'Report received.')),
-                );
-              },
-              child: const Text('Submit Report', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.cancel, style: const TextStyle(color: _onSurfaceVariant)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFBA1A1A)),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final res = await CommunityService().reportPost(
+                    postId,
+                    reason: selectedReason,
+                    details: detailsController.text.trim(),
+                  );
+                  scaffold.showSnackBar(
+                    SnackBar(content: Text(res['message'] ?? 'Report received.')),
+                  );
+                },
+                child: Text(l10n.submitReport, style: const TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1105,14 +1112,14 @@ class _CommunityScreenState extends State<CommunityScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              _isMyPostsView ? 'No Reports Yet' : 'No Alerts in this Category',
+              _isMyPostsView ? AppLocalizations.of(context).noReportsYet : AppLocalizations.of(context).noAlertsInCategory,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
             ),
             const SizedBox(height: 6),
             Text(
               _isMyPostsView
-                  ? 'Reports you share about local safety and road hazards will appear here.'
-                  : 'Be the first in your area to share a safety notice or helpful community tip.',
+                  ? AppLocalizations.of(context).translate('myReportsEmptyDesc')
+                  : AppLocalizations.of(context).translate('feedEmptyDesc'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: _onSurfaceVariant),
             ),
@@ -1121,7 +1128,7 @@ class _CommunityScreenState extends State<CommunityScreen>
               onPressed: _showCreatePostSheet,
               style: ElevatedButton.styleFrom(backgroundColor: _primary),
               icon: const Icon(Icons.add, color: Colors.white, size: 18),
-              label: const Text('Post Safety Report', style: TextStyle(color: Colors.white)),
+              label: Text(AppLocalizations.of(context).postSafetyReport, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1139,7 +1146,7 @@ class _CommunityScreenState extends State<CommunityScreen>
             const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFFBA1A1A)),
             const SizedBox(height: 12),
             Text(
-              _errorMessage ?? 'Failed to load safety alerts.',
+              _errorMessage ?? AppLocalizations.of(context).connectionErrorPullRefresh,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, color: _onSurface),
             ),
@@ -1148,7 +1155,7 @@ class _CommunityScreenState extends State<CommunityScreen>
               onPressed: () => _fetchFeed(resetPage: true),
               style: ElevatedButton.styleFrom(backgroundColor: _primary),
               icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-              label: const Text('Retry', style: TextStyle(color: Colors.white)),
+              label: Text(AppLocalizations.of(context).retry, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1302,7 +1309,7 @@ class _PostDetailsSheetState extends State<_PostDetailsSheet> {
                           Icon(_post.category.icon, size: 14, color: _post.category.color),
                           const SizedBox(width: 4),
                           Text(
-                            _post.category.label,
+                            _post.category.localizedLabel(AppLocalizations.of(context)),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -1374,14 +1381,14 @@ class _PostDetailsSheetState extends State<_PostDetailsSheet> {
                     const Icon(Icons.person_pin_circle_outlined, size: 16, color: Color(0xFF705D67)),
                     const SizedBox(width: 6),
                     Text(
-                      'Reported by ${_post.authorName}',
+                      AppLocalizations.of(context).reportedByAuthor(_post.authorName),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF705D67)),
                     ),
                     const Spacer(),
                     const Icon(Icons.thumb_up_alt_outlined, size: 14, color: Color(0xFF4E4449)),
                     const SizedBox(width: 4),
                     Text(
-                      '${_post.upvotesCount} upvotes',
+                      AppLocalizations.of(context).upvotesCountSuffix(_post.upvotesCount),
                       style: const TextStyle(fontSize: 12, color: Color(0xFF4E4449)),
                     ),
                   ],
@@ -1391,9 +1398,9 @@ class _PostDetailsSheetState extends State<_PostDetailsSheet> {
                 // Comments Header
                 Row(
                   children: [
-                    const Text(
-                      'Community Discussion',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).communityDiscussionHeading,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF301427),
@@ -1417,12 +1424,12 @@ class _PostDetailsSheetState extends State<_PostDetailsSheet> {
                     ),
                   )
                 else if (_comments.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
-                        'No comments yet. Share an update or helpful info below.',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF4E4449)),
+                        AppLocalizations.of(context).noCommentsYetDesc,
+                        style: const TextStyle(fontSize: 13, color: Color(0xFF4E4449)),
                       ),
                     ),
                   )
@@ -1451,7 +1458,7 @@ class _PostDetailsSheetState extends State<_PostDetailsSheet> {
                     controller: _commentController,
                     maxLines: null,
                     decoration: InputDecoration(
-                      hintText: 'Add a comment or safety update...',
+                      hintText: AppLocalizations.of(context).addCommentFieldHint,
                       hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF4E4449)),
                       filled: true,
                       fillColor: const Color(0xFFF6F3F4),
@@ -1604,14 +1611,14 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
 
     if (title.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a descriptive title (at least 3 characters).')),
+        SnackBar(content: Text(AppLocalizations.of(context).enterTitleAtLeast3Chars)),
       );
       return;
     }
 
     if (description.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please describe the concern (at least 10 characters).')),
+        SnackBar(content: Text(AppLocalizations.of(context).describeConcernAtLeast10Chars)),
       );
       return;
     }
@@ -1634,14 +1641,14 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
       Navigator.pop(context);
       widget.onPostCreated(res['post'] as CommunityPost);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Safety alert published to community.'),
-          backgroundColor: Color(0xFF2E7D32),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).safetyAlertPublishedSuccess),
+          backgroundColor: const Color(0xFF2E7D32),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Failed to submit report.')),
+        SnackBar(content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToSubmitReport))),
       );
     }
   }
@@ -1671,9 +1678,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               children: [
                 const Icon(Icons.campaign, color: Color(0xFF301427), size: 24),
                 const SizedBox(width: 8),
-                const Text(
-                  'Post Safety Alert',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                Text(
+                  AppLocalizations.of(context).postSafetyAlertTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                 ),
                 const Spacer(),
                 IconButton(
@@ -1688,9 +1695,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Text(
-                  'Incident Category',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                Text(
+                  AppLocalizations.of(context).incidentCategory,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -1704,7 +1711,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                         children: [
                           Icon(cat.icon, size: 14, color: isSel ? Colors.white : cat.color),
                           const SizedBox(width: 4),
-                          Text(cat.label),
+                          Text(cat.localizedLabel(AppLocalizations.of(context))),
                         ],
                       ),
                       selected: isSel,
@@ -1723,16 +1730,16 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 ),
                 const SizedBox(height: 18),
 
-                const Text(
-                  'Title',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                Text(
+                  AppLocalizations.of(context).title,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _titleController,
                   maxLength: 200,
                   decoration: InputDecoration(
-                    hintText: 'e.g., Streetlight out on 5th Avenue',
+                    hintText: AppLocalizations.of(context).titlePlaceholder,
                     filled: true,
                     fillColor: const Color(0xFFF6F3F4),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -1740,9 +1747,9 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 ),
                 const SizedBox(height: 12),
 
-                const Text(
-                  'Description',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                Text(
+                  AppLocalizations.of(context).description,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                 ),
                 const SizedBox(height: 6),
                 TextField(
@@ -1750,7 +1757,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                   maxLines: 4,
                   maxLength: 3000,
                   decoration: InputDecoration(
-                    hintText: 'Provide helpful, objective details to help people navigate safely...',
+                    hintText: AppLocalizations.of(context).descriptionPlaceholder,
                     filled: true,
                     fillColor: const Color(0xFFF6F3F4),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -1758,16 +1765,16 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 ),
                 const SizedBox(height: 12),
 
-                const Text(
-                  'Location Details (Optional)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                Text(
+                  AppLocalizations.of(context).locationDetailsOptional,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _locationController,
                   maxLength: 255,
                   decoration: InputDecoration(
-                    hintText: 'e.g., Near Rajiv Chowk Gate 4',
+                    hintText: AppLocalizations.of(context).locationDetailsPlaceholder,
                     prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFF705D67)),
                     filled: true,
                     fillColor: const Color(0xFFF6F3F4),
@@ -1777,10 +1784,10 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 const SizedBox(height: 8),
 
                 SwitchListTile(
-                  title: const Text('Attach Coarse GPS Coordinates', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text(
-                    'Allows nearby users to view distance. Coarsened to ~110m to protect privacy.',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF4E4449)),
+                  title: Text(AppLocalizations.of(context).attachGpsCoordinates, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    AppLocalizations.of(context).attachGpsCoordinatesDesc,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF4E4449)),
                   ),
                   value: _attachLocation,
                   activeColor: const Color(0xFF301427),
@@ -1810,7 +1817,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Publish Report', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      : Text(AppLocalizations.of(context).publishReportBtn, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1862,7 +1869,7 @@ class _EditPostSheetState extends State<_EditPostSheet> {
 
     if (title.length < 3 || description.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title (3+ chars) and description (10+ chars) are required.')),
+        SnackBar(content: Text(AppLocalizations.of(context).titleAndDescRequired)),
       );
       return;
     }
@@ -1882,11 +1889,11 @@ class _EditPostSheetState extends State<_EditPostSheet> {
       Navigator.pop(context);
       widget.onPostUpdated(res['post'] as CommunityPost);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report updated successfully.')),
+        SnackBar(content: Text(AppLocalizations.of(context).reportUpdatedSuccess)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Failed to update report.')),
+        SnackBar(content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToUpdateReport))),
       );
     }
   }
@@ -1911,9 +1918,9 @@ class _EditPostSheetState extends State<_EditPostSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                const Text(
-                  'Edit Report',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
+                Text(
+                  AppLocalizations.of(context).editReport,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF301427)),
                 ),
                 const Spacer(),
                 IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
@@ -1925,7 +1932,7 @@ class _EditPostSheetState extends State<_EditPostSheet> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context).category, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -1933,7 +1940,7 @@ class _EditPostSheetState extends State<_EditPostSheet> {
                   children: CommunityCategory.values.map((cat) {
                     final isSel = _selectedCategory == cat;
                     return ChoiceChip(
-                      label: Text(cat.label),
+                      label: Text(cat.localizedLabel(AppLocalizations.of(context))),
                       selected: isSel,
                       selectedColor: const Color(0xFF301427),
                       labelStyle: TextStyle(fontSize: 12, color: isSel ? Colors.white : Colors.black87),
@@ -1944,7 +1951,7 @@ class _EditPostSheetState extends State<_EditPostSheet> {
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
-                const Text('Title', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context).title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _titleController,
@@ -1955,7 +1962,7 @@ class _EditPostSheetState extends State<_EditPostSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Description', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context).description, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _descriptionController,
@@ -1977,7 +1984,7 @@ class _EditPostSheetState extends State<_EditPostSheet> {
                   ),
                   child: _isSubmitting
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      : Text(AppLocalizations.of(context).saveChanges, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

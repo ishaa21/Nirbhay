@@ -50,7 +50,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
       });
     } else {
       setState(() {
-        _errorMessage = res['message'] as String? ?? 'Failed to load contacts.';
+        _errorMessage = AppLocalizations.of(context).localizeBackendMessage(res['message'] as String?, fallback: AppLocalizations.of(context).unableToLoadContacts);
         _isLoading = false;
       });
     }
@@ -78,7 +78,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'Failed to update alert preference.'),
+          content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToUpdateAlertPref)),
           backgroundColor: Colors.red[800],
         ),
       );
@@ -91,15 +91,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Contact', style: TextStyle(color: Color(0xFF1B1B1C))),
+        title: Text(AppLocalizations.of(context).deleteContactTitle, style: const TextStyle(color: Color(0xFF1B1B1C))),
         content: Text(
-          'Are you sure you want to remove "${contact.name}" from your emergency contacts?',
+          AppLocalizations.of(context).deleteContactConfirmVal(contact.name),
           style: const TextStyle(color: _onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: _onSurfaceVariant)),
+            child: Text(AppLocalizations.of(context).cancel, style: const TextStyle(color: _onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -107,7 +107,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context).delete),
           ),
         ],
       ),
@@ -125,14 +125,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'Contact deleted successfully.'),
+          content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).contactDeletedSuccess)),
           backgroundColor: _primary,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'Failed to delete contact.'),
+          content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToDeleteContact)),
           backgroundColor: Colors.red[800],
         ),
       );
@@ -184,20 +184,20 @@ class _ContactsScreenState extends State<ContactsScreen> {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'Emergency Contacts',
-                style: TextStyle(
+                AppLocalizations.of(context).contactsHeading,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: _primary,
                   letterSpacing: -0.2,
                 ),
               ),
-              SizedBox(height: 3),
+              const SizedBox(height: 3),
               Text(
-                'Manage your circle of safety',
-                style: TextStyle(
+                AppLocalizations.of(context).manageCircleOfSafety,
+                style: const TextStyle(
                   fontSize: 14,
                   color: _onSurfaceVariant,
                   fontWeight: FontWeight.w400,
@@ -225,12 +225,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.add, size: 16, color: Colors.white),
-                SizedBox(width: 6),
+              children: [
+                const Icon(Icons.add, size: 16, color: Colors.white),
+                const SizedBox(width: 6),
                 Text(
-                  'Add New',
-                  style: TextStyle(
+                  AppLocalizations.of(context).addNew,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -275,9 +275,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
         children: [
           const Icon(Icons.error_outline_rounded, size: 36, color: Color(0xFF9B1C1C)),
           const SizedBox(height: 10),
-          const Text(
-            'Unable to Load Contacts',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).unableToLoadContacts,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: Color(0xFF9B1C1C),
@@ -285,7 +285,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            _errorMessage ?? 'An error occurred while fetching your contacts.',
+            _errorMessage ?? AppLocalizations.of(context).errorFetchingContacts,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13.5, color: Color(0xFF771D1D)),
           ),
@@ -333,19 +333,19 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'No Emergency Contacts Yet',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).noEmergencyContactsYet,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: Color(0xFF1B1B1C),
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Add trusted friends or family members who will receive instant alerts during an emergency.',
+          Text(
+            AppLocalizations.of(context).noContactsDesc,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13.5,
               color: _onSurfaceVariant,
               height: 1.4,
@@ -355,7 +355,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ElevatedButton.icon(
             onPressed: () => _showAddEditContactSheet(context),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add Your First Contact'),
+            label: Text(AppLocalizations.of(context).addFirstContact),
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
               foregroundColor: Colors.white,
@@ -537,20 +537,20 @@ class _ContactCardState extends State<_ContactCard> {
                 PopupMenuItem(
                   value: 'edit',
                   child: Row(
-                    children: const [
-                      Icon(Icons.edit_outlined, size: 18, color: _primary),
-                      SizedBox(width: 8),
-                      Text('Edit Contact', style: TextStyle(fontSize: 13.5)),
+                    children: [
+                      const Icon(Icons.edit_outlined, size: 18, color: _primary),
+                      const SizedBox(width: 8),
+                      Text(AppLocalizations.of(context).editContact, style: const TextStyle(fontSize: 13.5)),
                     ],
                   ),
                 ),
                 PopupMenuItem(
                   value: 'delete',
                   child: Row(
-                    children: const [
-                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(fontSize: 13.5, color: Colors.red)),
+                    children: [
+                      const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text(AppLocalizations.of(context).delete, style: const TextStyle(fontSize: 13.5, color: Colors.red)),
                     ],
                   ),
                 ),
@@ -563,9 +563,9 @@ class _ContactCardState extends State<_ContactCard> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Text(
-                  'Auto-alert',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).autoAlertBadge,
+                  style: const TextStyle(
                     fontSize: 11,
                     color: _onSurfaceVariant,
                     fontWeight: FontWeight.w500,
@@ -762,14 +762,14 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'Contact saved successfully.'),
+          content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).contactSavedSuccess)),
           backgroundColor: _primary,
         ),
       );
     } else {
       setState(() {
         _isSaving = false;
-        _sheetError = res['message'] as String? ?? 'Failed to save contact.';
+        _sheetError = AppLocalizations.of(context).localizeBackendMessage(res['message'] as String?, fallback: AppLocalizations.of(context).failedToSaveContact);
       });
     }
   }
@@ -804,7 +804,7 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
             const SizedBox(height: 20),
 
             Text(
-              _isEditing ? 'Edit Emergency Contact' : 'Add Emergency Contact',
+              _isEditing ? AppLocalizations.of(context).editEmergencyContact : AppLocalizations.of(context).addEmergencyContact,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -839,11 +839,11 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
 
             _sheetField(
               controller: _nameController,
-              label: 'Full Name *',
-              hint: 'e.g. Jane Doe',
+              label: AppLocalizations.of(context).fullNameAsterisk,
+              hint: AppLocalizations.of(context).fullNameHint,
               validator: (val) {
                 if (val == null || val.trim().isEmpty) {
-                  return 'Please enter contact name';
+                  return AppLocalizations.of(context).pleaseEnterContactName;
                 }
                 return null;
               },
@@ -852,15 +852,15 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
 
             _sheetField(
               controller: _phoneController,
-              label: 'Phone Number *',
-              hint: 'e.g. +91 9876543210',
+              label: AppLocalizations.of(context).phoneNumberAsterisk,
+              hint: AppLocalizations.of(context).phoneNumberHint,
               keyboardType: TextInputType.phone,
               validator: (val) {
                 if (val == null || val.trim().isEmpty) {
-                  return 'Please enter phone number';
+                  return AppLocalizations.of(context).pleaseEnterPhoneNumber;
                 }
                 if (val.trim().length < 7) {
-                  return 'Please enter a valid phone number';
+                  return AppLocalizations.of(context).pleaseEnterValidPhoneNumber;
                 }
                 return null;
               },
@@ -869,8 +869,8 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
 
             _sheetField(
               controller: _relationshipController,
-              label: 'Relationship (Optional)',
-              hint: 'e.g. Sister, Mother, Friend',
+              label: AppLocalizations.of(context).relationshipOptional,
+              hint: AppLocalizations.of(context).relationshipHint,
             ),
             const SizedBox(height: 16),
 
@@ -880,19 +880,19 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
-                      'Automatic SOS Alert',
-                      style: TextStyle(
+                      AppLocalizations.of(context).automaticSosAlert,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF1B1B1C),
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Alert this contact during emergencies',
-                      style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
+                      AppLocalizations.of(context).alertContactDuringEmergencies,
+                      style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -927,7 +927,7 @@ class _AddEditContactSheetState extends State<_AddEditContactSheet> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                       )
                     : Text(
-                        _isEditing ? 'Update Contact' : 'Save Contact',
+                        _isEditing ? AppLocalizations.of(context).updateContact : AppLocalizations.of(context).saveContact,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,

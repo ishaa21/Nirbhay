@@ -119,9 +119,9 @@ class _ShakeCountdownDialogState extends State<ShakeCountdownDialog>
         Navigator.of(context, rootNavigator: true).pop();
       }
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Shake SOS cancelled. No alerts were sent.'),
-          backgroundColor: Color(0xFF424242),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).shakeSosCancelledNoAlerts),
+          backgroundColor: const Color(0xFF424242),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -218,9 +218,9 @@ class _ShakeCountdownDialogState extends State<ShakeCountdownDialog>
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const Text(
-                          'SECONDS',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).seconds.toUpperCase(),
+                          style: const TextStyle(
                             color: Color(0xFFFF8A80),
                             fontSize: 10,
                             letterSpacing: 1.5,
@@ -264,10 +264,10 @@ class _ShakeCountdownDialogState extends State<ShakeCountdownDialog>
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Accidental shake? Tap Cancel above or from the notification bar to abort.',
+              Text(
+                AppLocalizations.of(context).accidentalShakeCancelHint,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF8C7E85), fontSize: 11),
+                style: const TextStyle(color: Color(0xFF8C7E85), fontSize: 11),
               ),
             ],
           ),

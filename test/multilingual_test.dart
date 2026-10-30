@@ -47,9 +47,9 @@ void main() {
       expect(l10n.emergencyContacts, 'Emergency Contacts');
     });
 
-    test('Hindi dictionary returns Devanagari script strings', () {
+    test('Hindi dictionary returns Devanagari script strings and keeps Nirbhay in English', () {
       final l10n = AppLocalizations(const Locale('hi', ''));
-      expect(l10n.appName, 'निर्भय');
+      expect(l10n.appName, 'Nirbhay');
       expect(l10n.tapForSos, 'SOS के लिए टैप करें');
       expect(l10n.safetyTimer, 'सुरक्षा टाइमर');
       expect(l10n.fakeCall, 'फेक कॉल');
@@ -58,9 +58,9 @@ void main() {
       expect(l10n.goodMorning, 'सुप्रभात,');
     });
 
-    test('Gujarati dictionary returns Gujarati script strings', () {
+    test('Gujarati dictionary returns Gujarati script strings and keeps Nirbhay in English', () {
       final l10n = AppLocalizations(const Locale('gu', ''));
-      expect(l10n.appName, 'નિર્ભય');
+      expect(l10n.appName, 'Nirbhay');
       expect(l10n.tapForSos, 'SOS માટે ટેપ કરો');
       expect(l10n.safetyTimer, 'સેફ્ટી ટાઈમર');
       expect(l10n.fakeCall, 'ફેક કોલ');
@@ -71,8 +71,8 @@ void main() {
 
     test('fallback to English when key is missing in non-English dictionary', () {
       final l10n = AppLocalizations(const Locale('hi', ''));
-      // appName is defined, returns Hindi
-      expect(l10n.translate('appName'), 'निर्भय');
+      // appName is defined, returns Nirbhay in English
+      expect(l10n.translate('appName'), 'Nirbhay');
       // non-existent key returns key itself
       expect(l10n.translate('completely_non_existent_key_xyz'), 'completely_non_existent_key_xyz');
     });
@@ -107,7 +107,7 @@ void main() {
         trackingUrl: trackUrl,
         targetLanguageCode: 'hi',
       );
-      expect(hiAlert, contains('आपातकालीन अलर्ट: निर्भय SOS'));
+      expect(hiAlert, contains('आपातकालीन अलर्ट: Nirbhay SOS'));
       expect(hiAlert, contains('https://maps.google.com/?q=23.0225,72.5714'));
       expect(hiAlert, contains(trackUrl));
       expect(hiAlert, contains('कृपया तुरंत सहायता करें।'));
@@ -120,7 +120,7 @@ void main() {
         trackingUrl: trackUrl,
         targetLanguageCode: 'gu',
       );
-      expect(guAlert, contains('ઇમરજન્સી એલર્ટ: નિર્ભય SOS'));
+      expect(guAlert, contains('ઇમરજન્સી એલર્ટ: Nirbhay SOS'));
       expect(guAlert, contains('https://maps.google.com/?q=23.0225,72.5714'));
       expect(guAlert, contains(trackUrl));
       expect(guAlert, contains('કૃપા કરીને તરત જ તપાસ કરો.'));
@@ -175,7 +175,7 @@ void main() {
         longitude: 77.2090,
         targetLanguageCode: 'hi',
       );
-      expect(hiTimer, contains('सुरक्षा अलर्ट: निर्भय सेफ्टी टाइमर'));
+      expect(hiTimer, contains('सुरक्षा अलर्ट: Nirbhay सेफ्टी टाइमर'));
       expect(hiTimer, contains('https://maps.google.com/?q=28.6139,77.209'));
 
       final guTimer = languageService.buildLocalizedSafetyTimerExpiredMessage(
@@ -183,7 +183,7 @@ void main() {
         longitude: 77.2090,
         targetLanguageCode: 'gu',
       );
-      expect(guTimer, contains('સુરક્ષા ચેતવણી: નિર્ભય સેફ્ટી ટાઈમર'));
+      expect(guTimer, contains('સુરક્ષા ચેતવણી: Nirbhay સેફ્ટી ટાઈમર'));
       expect(guTimer, contains('https://maps.google.com/?q=28.6139,77.209'));
     });
 
@@ -264,8 +264,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Verify immediate update to Hindi without restart
-      expect(find.text('निर्भय'), findsOneWidget);
+      // Verify immediate update to Hindi without restart (Nirbhay stays in English)
+      expect(find.text('Nirbhay'), findsOneWidget);
       expect(find.text('SOS के लिए टैप करें'), findsOneWidget);
       expect(find.text('सुरक्षा टाइमर'), findsOneWidget);
       expect(find.text('TAP FOR SOS'), findsNothing);
@@ -275,8 +275,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Verify immediate update to Gujarati without restart
-      expect(find.text('નિર્ભય'), findsOneWidget);
+      // Verify immediate update to Gujarati without restart (Nirbhay stays in English)
+      expect(find.text('Nirbhay'), findsOneWidget);
       expect(find.text('SOS માટે ટેપ કરો'), findsOneWidget);
       expect(find.text('સેફ્ટી ટાઈમર'), findsOneWidget);
       expect(find.text('SOS के लिए टैप करें'), findsNothing);

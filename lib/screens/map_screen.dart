@@ -518,9 +518,9 @@ class _MapScreenState extends State<MapScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Nearby Safety Help',
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.of(context).nearbySafetyHelp,
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -529,7 +529,7 @@ class _MapScreenState extends State<MapScreen> {
                       Text(
                         _currentPosition != null
                             ? 'GPS: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}'
-                            : 'Acquiring GPS fix...',
+                            : AppLocalizations.of(context).acquiringGpsFix,
                         style: const TextStyle(fontSize: 11, color: Colors.white70),
                       ),
                     ],
@@ -560,7 +560,9 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _currentPosition != null ? 'Live GPS' : 'No GPS',
+                        _currentPosition != null
+                            ? AppLocalizations.of(context).liveGps
+                            : AppLocalizations.of(context).noGps,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -591,7 +593,7 @@ class _MapScreenState extends State<MapScreen> {
             backgroundColor: _cardBg,
             foregroundColor: _primary,
             elevation: 3,
-            tooltip: 'My Location',
+            tooltip: AppLocalizations.of(context).myLocation,
             onPressed: _centerOnUser,
             child: const Icon(Icons.my_location_rounded, size: 18),
           ),
@@ -602,7 +604,7 @@ class _MapScreenState extends State<MapScreen> {
             backgroundColor: _cardBg,
             foregroundColor: _primary,
             elevation: 3,
-            tooltip: 'Show All Places',
+            tooltip: AppLocalizations.of(context).showAllPlaces,
             onPressed: _fitMapToMarkers,
             child: const Icon(Icons.crop_free_rounded, size: 18),
           ),
@@ -613,7 +615,7 @@ class _MapScreenState extends State<MapScreen> {
             backgroundColor: _cardBg,
             foregroundColor: _primary,
             elevation: 3,
-            tooltip: 'Refresh Location & Places',
+            tooltip: AppLocalizations.of(context).refreshLocationAndPlaces,
             onPressed: _isLoading ? null : _loadLocationAndPlaces,
             child: _isLoading
                 ? const SizedBox(
@@ -703,7 +705,7 @@ class _MapScreenState extends State<MapScreen> {
                                   Icon(Icons.history_rounded, size: 11, color: Colors.amber.shade900),
                                   const SizedBox(width: 3),
                                   Text(
-                                    'Cached',
+                                    AppLocalizations.of(context).translate('cached'),
                                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.amber.shade900),
                                   ),
                                 ],
@@ -717,7 +719,7 @@ class _MapScreenState extends State<MapScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${_places.length} found',
+                            AppLocalizations.of(context).placesFoundCount(_places.length),
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -793,22 +795,22 @@ class _MapScreenState extends State<MapScreen> {
             child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 18),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Immediate Danger? Call 112',
-                  style: TextStyle(
+                  AppLocalizations.of(context).translate('immediateDangerCall112'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: _emergencyRed,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'All-India Emergency Helpline for Police & Medical assistance',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B2121)),
+                  AppLocalizations.of(context).translate('allIndiaHelplinePoliceMedical'),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B2121)),
                 ),
               ],
             ),
@@ -822,9 +824,9 @@ class _MapScreenState extends State<MapScreen> {
               elevation: 0,
             ),
             onPressed: _call112,
-            child: const Text(
-              'Call 112',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            child: Text(
+              AppLocalizations.of(context).translate('call112'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -913,7 +915,7 @@ class _MapScreenState extends State<MapScreen> {
             const CircularProgressIndicator(color: _primary),
             const SizedBox(height: 16),
             Text(
-              'Finding nearby ${_getCategoryLabel(_selectedCategory).toLowerCase()}...',
+              AppLocalizations.of(context).findingNearbyCategory(_getLocalizedCategoryLabel(context, _selectedCategory)),
               style: const TextStyle(fontSize: 13, color: _onSurfaceVariant),
             ),
           ],
@@ -938,12 +940,14 @@ class _MapScreenState extends State<MapScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            isPerm ? 'Location Permission Needed' : 'Device GPS is Turned Off',
+            isPerm
+                ? AppLocalizations.of(context).locationPermissionNeededTitle
+                : AppLocalizations.of(context).deviceGpsTurnedOffTitle,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _onSurface),
           ),
           const SizedBox(height: 6),
           Text(
-            _errorMessage ?? 'Location access is required to discover nearby emergency services.',
+            _errorMessage ?? AppLocalizations.of(context).locationRequiredNearbyServices,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
           ),
@@ -966,8 +970,8 @@ class _MapScreenState extends State<MapScreen> {
             icon: const Icon(Icons.refresh_rounded, size: 16),
             label: Text(
               _locationErrorType == LocationResultType.permissionDeniedForever
-                  ? 'Open App Settings'
-                  : 'Enable & Retry',
+                  ? AppLocalizations.of(context).openAppSettings
+                  : AppLocalizations.of(context).enableAndRetry,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
@@ -990,15 +994,15 @@ class _MapScreenState extends State<MapScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            isRateLimit ? 'Public Rate Limit Reached' : 'Unable to Load Services',
+            isRateLimit ? AppLocalizations.of(context).publicRateLimitReached : AppLocalizations.of(context).unableToLoadServices,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _onSurface),
           ),
           const SizedBox(height: 6),
           Text(
             _errorMessage ??
                 (isRateLimit
-                    ? 'The public OpenStreetMap service is cooling down. Please retry in 30 seconds.'
-                    : 'Network error. Please verify your internet connection.'),
+                    ? AppLocalizations.of(context).osmCooldownNotice
+                    : AppLocalizations.of(context).networkErrorVerifyConnection),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
           ),
@@ -1012,7 +1016,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
             onPressed: () => _fetchPlacesForCategory(_selectedCategory, forceRefresh: true),
             icon: const Icon(Icons.refresh, size: 16),
-            label: Text(isRateLimit ? 'Retry Now' : 'Try Again', style: const TextStyle(fontSize: 12)),
+            label: Text(isRateLimit ? AppLocalizations.of(context).retryNow : AppLocalizations.of(context).tryAgain, style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -1028,12 +1032,12 @@ class _MapScreenState extends State<MapScreen> {
           const Icon(Icons.search_off_rounded, size: 46, color: _onSurfaceVariant),
           const SizedBox(height: 12),
           Text(
-            'No ${_getCategoryLabel(_selectedCategory)} Found Nearby',
+            AppLocalizations.of(context).noCategoryFoundNearby(_getLocalizedCategoryLabel(context, _selectedCategory)),
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _onSurface),
           ),
           const SizedBox(height: 6),
           Text(
-            'No records found within ${_searchRadius ~/ 1000} km of your location on OpenStreetMap.',
+            AppLocalizations.of(context).noRecordsFoundWithinRadius(_searchRadius ~/ 1000),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
           ),
@@ -1046,7 +1050,7 @@ class _MapScreenState extends State<MapScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () => _fetchPlacesForCategory('all'),
-              child: const Text('Show All Nearby Safety Services', style: TextStyle(fontSize: 12)),
+              child: Text(AppLocalizations.of(context).showAllServices, style: const TextStyle(fontSize: 12)),
             ),
         ],
       ),
@@ -1135,7 +1139,7 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            place.displayStatus,
+                            place.localizedDisplayStatus(AppLocalizations.of(context)),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1192,7 +1196,7 @@ class _MapScreenState extends State<MapScreen> {
                   Icon(Icons.phone_disabled_outlined, size: 13, color: _onSurfaceVariant.withOpacity(0.8)),
                   const SizedBox(width: 5),
                   Text(
-                    'Phone number unavailable',
+                    AppLocalizations.of(context).translate('phoneUnavailable'),
                     style: TextStyle(
                       fontSize: 11,
                       fontStyle: FontStyle.italic,
@@ -1240,7 +1244,7 @@ class _MapScreenState extends State<MapScreen> {
                   )
                 else
                   Tooltip(
-                    message: 'Phone number unavailable',
+                    message: AppLocalizations.of(context).translate('phoneUnavailable'),
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _onSurfaceVariant.withOpacity(0.4),
@@ -1255,7 +1259,7 @@ class _MapScreenState extends State<MapScreen> {
                         color: _onSurfaceVariant.withOpacity(0.4),
                       ),
                       label: Text(
-                        'Call',
+                        AppLocalizations.of(context).translate('call'),
                         style: TextStyle(fontSize: 12, color: _onSurfaceVariant.withOpacity(0.4)),
                       ),
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/app_language.dart';
 import 'auth_service.dart';
@@ -31,6 +32,10 @@ class LanguageService {
           _currentLanguageCode = code;
           localeNotifier.value = Locale(code, '');
           debugPrint('[LanguageService] Loaded persisted language: $code');
+          try {
+            const MethodChannel('com.ishaa21.nirbhay/shake_sos')
+                .invokeMethod('setLanguage', {'languageCode': code});
+          } catch (_) {}
           return;
         }
       }
@@ -55,6 +60,12 @@ class LanguageService {
     } catch (e) {
       debugPrint('[LanguageService] Failed to persist language locally: $e');
     }
+
+    // Sync to Android native layer for notifications & background services
+    try {
+      const MethodChannel('com.ishaa21.nirbhay/shake_sos')
+          .invokeMethod('setLanguage', {'languageCode': code});
+    } catch (_) {}
 
     // Sync to backend if authenticated
     try {
@@ -134,9 +145,9 @@ class LanguageService {
 
     switch (lang) {
       case 'hi':
-        return 'आपातकालीन अलर्ट: निर्भय SOS $timeStr पर सक्रिय हुआ। $locationStr.$trackingStr कृपया तुरंत सहायता करें।';
+        return 'आपातकालीन अलर्ट: Nirbhay SOS $timeStr पर सक्रिय हुआ। $locationStr.$trackingStr कृपया तुरंत सहायता करें।';
       case 'gu':
-        return 'ઇમરજન્સી એલર્ટ: નિર્ભય SOS $timeStr વાગ્યે સક્રિય થયું. $locationStr.$trackingStr કૃપા કરીને તરત જ તપાસ કરો.';
+        return 'ઇમરજન્સી એલર્ટ: Nirbhay SOS $timeStr વાગ્યે સક્રિય થયું. $locationStr.$trackingStr કૃપા કરીને તરત જ તપાસ કરો.';
       case 'en':
       default:
         return 'EMERGENCY ALERT: Nirbhay SOS activated at $timeStr. $locationStr.$trackingStr Please check immediately.';
@@ -148,9 +159,9 @@ class LanguageService {
     final lang = (targetLanguageCode ?? _currentLanguageCode).toLowerCase();
     switch (lang) {
       case 'hi':
-        return 'स्थिति अपडेट: निर्भय SOS आपातकालीन अलर्ट समाप्त हो गया है। उपयोगकर्ता अब सुरक्षित है। आगे किसी कार्रवाई की आवश्यकता नहीं है।';
+        return 'स्थिति अपडेट: Nirbhay SOS आपातकालीन अलर्ट समाप्त हो गया है। उपयोगकर्ता अब सुरक्षित है। आगे किसी कार्रवाई की आवश्यकता नहीं है।';
       case 'gu':
-        return 'સ્થિતિ અપડેટ: નિર્ભય SOS ઇમરજન્સી એલર્ટ પૂર્ણ થયું છે. વપરાશકર્તા હવે સુરક્ષિત છે. હવે કોઈ પગલાં લેવાની જરૂર નથી.';
+        return 'સ્થિતિ અપડેટ: Nirbhay SOS ઇમરજન્સી એલર્ટ પૂર્ણ થયું છે. વપરાશકર્તા હવે સુરક્ષિત છે. હવે કોઈ પગલાં લેવાની જરૂર નથી.';
       case 'en':
       default:
         return 'STATUS UPDATE: Nirbhay SOS emergency alert has been RESOLVED. User is SAFE now. No further action is required.';
@@ -171,9 +182,9 @@ class LanguageService {
 
     switch (lang) {
       case 'hi':
-        return 'सुरक्षा अलर्ट: निर्भय सेफ्टी टाइमर समाप्त हो गया है और उपयोगकर्ता ने पुष्टि नहीं की है।$locPart कृपया तुरंत उनकी सुरक्षा की पुष्टि करें।';
+        return 'सुरक्षा अलर्ट: Nirbhay सेफ्टी टाइमर समाप्त हो गया है और उपयोगकर्ता ने पुष्टि नहीं की है।$locPart कृपया तुरंत उनकी सुरक्षा की पुष्टि करें।';
       case 'gu':
-        return 'સુરક્ષા ચેતવણી: નિર્ભય સેફ્ટી ટાઈમર સમાપ્ત થઈ ગયું છે અને વપરાશકર્તાએ પુષ્ટિ કરી નથી.$locPart કૃપા કરીને તરત જ તેમની સુરક્ષા ચકાસો.';
+        return 'સુરક્ષા ચેતવણી: Nirbhay સેફ્ટી ટાઈમર સમાપ્ત થઈ ગયું છે અને વપરાશકર્તાએ પુષ્ટિ કરી નથી.$locPart કૃપા કરીને તરત જ તેમની સુરક્ષા ચકાસો.';
       case 'en':
       default:
         return 'SAFETY ALERT: Nirbhay Safety Timer expired without user check-in.$locPart Please verify their safety immediately.';

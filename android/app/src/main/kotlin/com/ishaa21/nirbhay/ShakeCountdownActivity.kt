@@ -192,7 +192,7 @@ class ShakeCountdownActivity : Activity() {
             ).apply {
                 bottomMargin = dp(8)
             }
-            text = "SHAKE DETECTED"
+            text = LocaleHelper.getString(this@ShakeCountdownActivity, R.string.shake_activity_title)
             setTextColor(Color.WHITE)
             textSize = 20f
             typeface = Typeface.DEFAULT_BOLD
@@ -209,7 +209,7 @@ class ShakeCountdownActivity : Activity() {
             ).apply {
                 bottomMargin = dp(24)
             }
-            text = "Emergency SOS alert will send in:"
+            text = LocaleHelper.getString(this@ShakeCountdownActivity, R.string.shake_activity_subtitle)
             setTextColor(Color.parseColor("#D1C3C9"))
             textSize = 14f
             gravity = Gravity.CENTER
@@ -239,7 +239,7 @@ class ShakeCountdownActivity : Activity() {
             ).apply {
                 bottomMargin = dp(32)
             }
-            text = "SECONDS"
+            text = LocaleHelper.getString(this@ShakeCountdownActivity, R.string.shake_activity_seconds)
             setTextColor(Color.parseColor("#FF8A80"))
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
@@ -254,7 +254,7 @@ class ShakeCountdownActivity : Activity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(56)
             )
-            text = "CANCEL SOS (I AM SAFE)"
+            text = LocaleHelper.getString(this@ShakeCountdownActivity, R.string.shake_activity_cancel_btn)
             setTextColor(Color.WHITE)
             textSize = 16f
             typeface = Typeface.DEFAULT_BOLD
@@ -300,9 +300,9 @@ class ShakeCountdownActivity : Activity() {
 
     private fun handleCancel() {
         cancelButton.isEnabled = false
-        cancelButton.text = "CANCELLING..."
+        cancelButton.text = LocaleHelper.getString(this, R.string.shake_activity_cancelling)
         ShakeDetectionService.cancelCountdown(this)
-        Toast.makeText(this, "Emergency SOS cancelled. No alerts sent.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, LocaleHelper.getString(this, R.string.shake_activity_cancelled_toast), Toast.LENGTH_SHORT).show()
         finish()
     }
 

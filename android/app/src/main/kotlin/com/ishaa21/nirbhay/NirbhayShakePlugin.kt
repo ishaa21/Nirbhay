@@ -117,6 +117,11 @@ class NirbhayShakePlugin(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "setLanguage" -> {
+                val lang = call.argument<String>("languageCode") ?: "en"
+                LocaleHelper.setLanguage(activity, lang)
+                result.success(true)
+            }
             "startService" -> {
                 // Ensure notification permission is requested on Android 13+ (API 33+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

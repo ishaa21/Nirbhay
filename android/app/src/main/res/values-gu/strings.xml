@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">નિર્ભય</string>
+    <string name="fake_call_channel_name">ઇનકમિંગ ફેક કોલ્સ</string>
+    <string name="fake_call_channel_desc">નિર્ભય ફેક કોલ ઝડપી બચાવ માટે ઇનકમિંગ કોલ ચેતવણી</string>
+    <string name="fake_call_incoming_text">ઇનકમિંગ કોલ (%1$s)</string>
+    <string name="fake_call_action_accept">સ્વીકારો</string>
+    <string name="fake_call_action_decline">અસ્વીકાર કરો</string>
+    <string name="shake_activity_title">શેક શોધી કાઢવામાં આવ્યું</string>
+    <string name="shake_activity_subtitle">કટોકટી SOS ચેતવણી મોકલવામાં આવશે:</string>
+    <string name="shake_activity_seconds">સેકન્ડ</string>
+    <string name="shake_activity_cancel_btn">SOS રદ કરો (હું સુરક્ષિત છું)</string>
+    <string name="shake_activity_cancelling">રદ કરી રહ્યું છે…</string>
+    <string name="shake_activity_cancelled_toast">કટોકટી SOS રદ કરવામાં આવ્યું. કોઈ ચેતવણી મોકલવામાં આવી નથી.</string>
+    <string name="shake_notif_monitor_title">નિર્ભય શેક ડિટેક્શન સક્રિય છે</string>
+    <string name="shake_notif_monitor_text">કટોકટી શેક ડિટેક્શન બેકગ્રાઉન્ડમાં ચાલી રહ્યું છે.</string>
+    <string name="shake_notif_countdown_title">🚨 કટોકટી SOS કાઉન્ટડાઉન</string>
+    <string name="shake_notif_countdown_text">શેક શોધી કાઢવામાં આવ્યું! SOS ચેતવણી %1$d સેકન્ડમાં મોકલવામાં આવશે.</string>
+    <string name="shake_notif_action_cancel">SOS રદ કરો</string>
+    <string name="shake_notif_triggered_title">🚨 કટોકટી SOS સક્રિય થયું</string>
+    <string name="shake_notif_triggered_text">કટોકટી સંપર્કો અને સેવાઓને તમારા લાઇવ સ્થાન સાથે ચેતવણી આપવામાં આવી છે.</string>
+    <string name="shake_channel_monitor_name">શેક ડિટેક્શન સેવા</string>
+    <string name="shake_channel_monitor_desc">નિર્ભય શેક ડિટેક્શન માટે સતત બેકગ્રાઉન્ડ મોનિટરિંગ</string>
+    <string name="shake_channel_countdown_name">કટોકટી SOS કાઉન્ટડાઉન</string>
+    <string name="shake_channel_countdown_desc">શેક શોધ્યા પછી સક્રિય 15-સેકન્ડ SOS કાઉન્ટડાઉન</string>
+</resources>

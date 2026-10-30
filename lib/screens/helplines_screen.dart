@@ -37,7 +37,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not launch dialer for $number')),
+          SnackBar(content: Text(AppLocalizations.of(context).couldNotLaunchDialerFor(number))),
         );
       }
     }
@@ -46,7 +46,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Copied $text to clipboard')),
+      SnackBar(content: Text(AppLocalizations.of(context).copiedToClipboardVal(text))),
     );
   }
 
@@ -124,18 +124,18 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
               // 5. Rapid Assistance Cards Title
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
+                children: [
                   Text(
-                    'Rapid Assistance Cards',
-                    style: TextStyle(
+                    AppLocalizations.of(context).translate('rapidAssistanceCards'),
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: _primary,
                     ),
                   ),
                   Text(
-                    'Auto-recorded lines',
-                    style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
+                    AppLocalizations.of(context).translate('autoRecordedLines'),
+                    style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
                   ),
                 ],
               ),
@@ -146,18 +146,18 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
               const SizedBox(height: 24),
 
               // 6. Specialized Directories (Accordions)
-              const Text(
-                'Specialized Directories',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context).translate('specializedDirectories'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: _primary,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Verified 24/7 by Nirbhay Emergency Desk',
-                style: TextStyle(fontSize: 12, color: _onSurfaceVariant),
+              Text(
+                AppLocalizations.of(context).verified247Desk,
+                style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
               ),
               const SizedBox(height: 12),
 
@@ -185,13 +185,13 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
         children: [
           Expanded(
             child: Row(
-              children: const [
-                Icon(Icons.my_location, size: 18, color: _primary),
-                SizedBox(width: 8),
+              children: [
+                const Icon(Icons.my_location, size: 18, color: _primary),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Delhi NCR • Active Dispatch Ring',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _onSurface),
+                    AppLocalizations.of(context).delhiNcrActiveDispatch,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _onSurface),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -206,12 +206,12 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
-              children: const [
-                CircleAvatar(radius: 3, backgroundColor: _primary),
-                SizedBox(width: 4),
+              children: [
+                const CircleAvatar(radius: 3, backgroundColor: _primary),
+                const SizedBox(width: 4),
                 Text(
-                  'Priority 1 Ready',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _onSecondaryContainer),
+                  AppLocalizations.of(context).priority1Ready,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _onSecondaryContainer),
                 ),
               ],
             ),
@@ -234,7 +234,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
         controller: _searchController,
         onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
         decoration: InputDecoration(
-          hintText: 'Search state, service, or keyword (e.g. 1091, Cyber, Legal)...',
+          hintText: AppLocalizations.of(context).searchHelplineHint,
           hintStyle: const TextStyle(color: _onSurfaceVariant, fontSize: 13),
           prefixIcon: const Icon(Icons.search, color: _onSurfaceVariant, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
@@ -274,14 +274,14 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Volume Button SOS Rapid Dial',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _primary),
+                  AppLocalizations.of(context).volumeButtonSosRapidDial,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _primary),
                 ),
                 Text(
-                  'Double-press volume down dials 112 (National SOS)',
-                  style: TextStyle(fontSize: 11, color: _onSecondaryContainer),
+                  AppLocalizations.of(context).volumeButtonSosDesc,
+                  style: const TextStyle(fontSize: 11, color: _onSecondaryContainer),
                 ),
               ],
             ),
@@ -298,10 +298,10 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
             ),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Volume button trigger enabled for 112 Emergency Dial')),
+                SnackBar(content: Text(AppLocalizations.of(context).volumeButtonTriggerEnabled)),
               );
             },
-            child: const Text('Configured', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).configuredBadge, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -350,9 +350,9 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'APEX NATIONAL LIFELINE',
-                            style: TextStyle(
+                          Text(
+                            AppLocalizations.of(context).apexNationalLifeline,
+                            style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.2,
@@ -361,7 +361,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                           ),
                           Text(
                             AppLocalizations.of(context).translate('national112'),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -382,17 +382,17 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                   color: const Color(0xFF48293D),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  '< 15 sec ETA',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFFD8ED)),
+                child: Text(
+                  AppLocalizations.of(context).etaUnder15s,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFFD8ED)),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Unified crisis response uniting Police, Fire, Ambulance, and coastal patrol with live GPS triangulation.',
-            style: TextStyle(fontSize: 12.5, color: Color(0xFFE7BAD3), height: 1.4),
+          Text(
+            AppLocalizations.of(context).unifiedCrisisDesc,
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFFE7BAD3), height: 1.4),
           ),
           const SizedBox(height: 12),
 
@@ -400,10 +400,10 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: const [
-              _BadgeItem(icon: Icons.schedule, text: '24/7 Priority Desk'),
-              _BadgeItem(icon: Icons.translate, text: '22 Indian Languages'),
-              _BadgeItem(icon: Icons.location_on, text: 'Satellite Dispatch'),
+            children: [
+              _BadgeItem(icon: Icons.schedule, text: AppLocalizations.of(context).desk247Priority),
+              _BadgeItem(icon: Icons.translate, text: AppLocalizations.of(context).languages22Indian),
+              _BadgeItem(icon: Icons.location_on, text: AppLocalizations.of(context).satelliteDispatch),
             ],
           ),
           const SizedBox(height: 16),
@@ -422,7 +422,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                   ),
                   onPressed: () => _callNumber('112'),
                   icon: const Icon(Icons.phone_in_talk, size: 18),
-                  label: const Text('Call 112', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  label: Text(AppLocalizations.of(context).call112, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -437,7 +437,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                   ),
                   onPressed: () => _copyToClipboard('112'),
                   icon: const Icon(Icons.content_copy, size: 18),
-                  label: const Text('Copy Dial', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  label: Text(AppLocalizations.of(context).copyDial, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -451,38 +451,39 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
   // 5. Rapid Assistance Cards Grid
   // ──────────────────────────────────────────────────────────────────────────
   Widget _buildRapidAssistanceGrid() {
+    final l10n = AppLocalizations.of(context);
     final List<Map<String, dynamic>> items = [
       {
-        'title': 'Women Helpline',
+        'title': l10n.womenHelplineTitle,
         'number': '1091',
-        'subtitle': 'Women in Distress & Quick PCR van dispatch',
-        'desc': 'Trained female police operators ready for street harassment, stalking, and domestic emergencies.',
-        'badges': ['24/7 Available', 'Hindi, English + 8 Regional', '< 30 sec response'],
+        'subtitle': l10n.womenHelplineSub,
+        'desc': l10n.womenHelplineDesc,
+        'badges': [l10n.badge247Available, l10n.badgeHindiEngRegional, l10n.badgeResponseUnder30s],
         'icon': Icons.female,
       },
       {
-        'title': 'NCW Helpline',
+        'title': l10n.ncwHelplineTitle,
         'number': '7827170170',
-        'subtitle': 'National Commission for Women SOS & WhatsApp',
-        'desc': 'Tele-counseling, domestic abuse intervention, and silent WhatsApp messaging for discreet reporting.',
-        'badges': ['24/7 Online', 'WhatsApp SOS Enabled', 'Legal Counsel'],
+        'subtitle': l10n.ncwHelplineSub,
+        'desc': l10n.ncwHelplineDesc,
+        'badges': [l10n.badge247Online, l10n.badgeWhatsappSosEnabled, l10n.badgeLegalCounsel],
         'icon': Icons.support_agent,
         'isWhatsapp': true,
       },
       {
-        'title': 'Cyber Crime Cell',
+        'title': l10n.cyberCrimeTitle,
         'number': '1930',
-        'subtitle': 'Online Stalking, Extortion, Morphing & Fraud',
-        'desc': 'Immediate freeze on fraudulent transactions and takedown of abusive multimedia content across platforms.',
-        'badges': ['24/7 Operation', 'English, Hindi & Regional', 'FIR Filing Guidance'],
+        'subtitle': l10n.cyberCrimeSub,
+        'desc': l10n.cyberCrimeDesc,
+        'badges': [l10n.badge247Operation, l10n.badgeEngHindiRegional, l10n.badgeFirFilingGuidance],
         'icon': Icons.security,
       },
       {
-        'title': 'Childline & Students',
+        'title': l10n.childlineTitle,
         'number': '1098',
-        'subtitle': 'Minors, Students & Young Girls in Distress',
-        'desc': 'Dedicated child protection, anti-trafficking rescue teams, and runaway youth emergency sanctuary.',
-        'badges': ['24/7 Free Helpline', 'Pan-India Support', 'Strict Anonymity'],
+        'subtitle': l10n.childlineSub,
+        'desc': l10n.childlineDesc,
+        'badges': [l10n.badge247FreeHelpline, l10n.badgePanIndiaSupport, l10n.badgeStrictAnonymity],
         'icon': Icons.family_restroom,
       },
     ];
@@ -494,9 +495,9 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
     }).toList();
 
     if (filtered.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(child: Text('No matching helplines found.', style: TextStyle(color: _onSurfaceVariant))),
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Center(child: Text(l10n.noMatchingHelplinesFound, style: const TextStyle(color: _onSurfaceVariant))),
       );
     }
 
@@ -625,7 +626,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                   ),
                   onPressed: () => _callNumber(number),
                   icon: const Icon(Icons.call, size: 16),
-                  label: Text('Call $number', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  label: Text(AppLocalizations.of(context).callNumberVal(number), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -641,7 +642,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                     ),
                     onPressed: () => _openWhatsApp(number, 'HELP EMERGENCY'),
                     icon: const Icon(Icons.chat, size: 16),
-                    label: const Text('WhatsApp SOS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    label: Text(AppLocalizations.of(context).whatsAppSos, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   ),
                 )
               else
@@ -656,7 +657,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                     ),
                     onPressed: () => _copyToClipboard(number),
                     icon: const Icon(Icons.content_copy, size: 16),
-                    label: const Text('Copy', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    label: Text(AppLocalizations.of(context).copy, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   ),
                 ),
             ],
@@ -670,23 +671,24 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
   // 6. Specialized Directories (Accordions)
   // ──────────────────────────────────────────────────────────────────────────
   Widget _buildSpecializedDirectories() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         _buildAccordionGroup(
-          title: 'Mental Health & Trauma Support',
-          subtitle: 'KIRAN & Tele-MANAS Govt Support',
+          title: l10n.mentalHealthCategory,
+          subtitle: l10n.mentalHealthCategorySub,
           icon: Icons.psychology,
           children: [
             _buildDirectoryItem(
-              title: 'KIRAN National Mental Health Helpline',
-              subtitle: 'Govt Mental Health 24/7 • Free • 13 Languages',
+              title: l10n.kiranHelplineTitle,
+              subtitle: l10n.kiranHelplineSub,
               number: '18005990019',
               displayNumber: '1800-599-0019',
             ),
             const SizedBox(height: 8),
             _buildDirectoryItem(
-              title: 'Tele-MANAS Crisis Counseling',
-              subtitle: '24/7 Comprehensive Mental Health & Trauma Relief',
+              title: l10n.teleManasTitle,
+              subtitle: l10n.teleManasSub,
               number: '14416',
               displayNumber: '14416 / 1800-891-4416',
             ),
@@ -695,27 +697,27 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
         const SizedBox(height: 10),
 
         _buildAccordionGroup(
-          title: 'Local Police & Legal Aid Desks',
-          subtitle: 'Control Rooms & Free Legal Counsel',
+          title: l10n.policeLegalCategory,
+          subtitle: l10n.policeLegalCategorySub,
           icon: Icons.local_police,
           children: [
             _buildDirectoryItem(
-              title: 'Delhi Police Control Room (PCR)',
-              subtitle: 'Instant police dispatch across Delhi NCR',
+              title: l10n.delhiPcrTitle,
+              subtitle: l10n.delhiPcrSub,
               number: '112',
               displayNumber: '112 / 100',
             ),
             const SizedBox(height: 8),
             _buildDirectoryItem(
-              title: 'NALSA Legal Aid Helpline',
-              subtitle: 'Free legal representation for women in distress',
+              title: l10n.nalsaTitle,
+              subtitle: l10n.nalsaSub,
               number: '15100',
               displayNumber: '15100',
             ),
             const SizedBox(height: 8),
             _buildDirectoryItem(
-              title: 'Railway Security Helpline (RPF)',
-              subtitle: 'Emergency assistance inside trains & station premises',
+              title: l10n.railwaySecurityTitle,
+              subtitle: l10n.railwaySecuritySub,
               number: '139',
               displayNumber: '139',
             ),

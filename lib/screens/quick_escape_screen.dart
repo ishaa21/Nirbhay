@@ -52,20 +52,20 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Row(
-          children: const [
-            Icon(Icons.warning_rounded, color: _error, size: 26),
-            SizedBox(width: 8),
-            Text('Activate Real SOS?', style: TextStyle(color: _error, fontWeight: FontWeight.bold, fontSize: 18)),
+          children: [
+            const Icon(Icons.warning_rounded, color: _error, size: 26),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context).activateRealSosDialogTitle, style: const TextStyle(color: _error, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
-        content: const Text(
-          'This will trigger a REAL emergency alert and dispatch SMS with your GPS location to all your emergency contacts.\n\n(If you only need a pretext to leave, use the simulated Fake Call instead.)',
-          style: TextStyle(fontSize: 13.5, color: _onSurfaceVariant, height: 1.4),
+        content: Text(
+          AppLocalizations.of(context).activateRealSosDialogDesc,
+          style: const TextStyle(fontSize: 13.5, color: _onSurfaceVariant, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('CANCEL', style: TextStyle(color: _onSurfaceVariant, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).cancel.toUpperCase(), style: const TextStyle(color: _onSurfaceVariant, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -73,7 +73,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('DISPATCH SOS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).dispatchSosBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -94,8 +94,8 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
         LocationUpdateService().start(sosId: incident.id);
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🚨 SOS Alert Dispatched! Contacts notified with live location.'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).sosDispatchedLiveLocNotif),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -103,7 +103,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'Failed to trigger SOS alert.'),
+          content: Text(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToTriggerSosAlert)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -328,9 +328,9 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'If you are in actual danger, use Real SOS. This dispatches SMS alerts with your real-time GPS location to your saved guardians.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF4A148C), height: 1.35),
+          Text(
+            AppLocalizations.of(context).translate('realSosWarningText'),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF4A148C), height: 1.35),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -342,7 +342,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.sos_rounded, color: Colors.white, size: 24),
               label: Text(
-                _isActivatingSos ? 'Dispatching...' : AppLocalizations.of(context).translate('triggerRealEmergencySos'),
+                _isActivatingSos ? AppLocalizations.of(context).translate('dispatchingText') : AppLocalizations.of(context).translate('triggerRealEmergencySos'),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
               ),
               style: ElevatedButton.styleFrom(
@@ -373,11 +373,11 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
-        title: const Text('Quick Notes', style: TextStyle(color: Colors.black87, fontSize: 17, fontWeight: FontWeight.w600)),
+        title: Text(AppLocalizations.of(context).quickNotesTitle, style: const TextStyle(color: Colors.black87, fontSize: 17, fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: const Icon(Icons.lock_open_rounded, color: Colors.black54),
-            tooltip: 'Return to Nirbhay',
+            tooltip: AppLocalizations.of(context).returnToNirbhayTooltip,
             onPressed: () => setState(() => _showDecoyView = false),
           ),
         ],
@@ -395,10 +395,10 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Grocery List', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  SizedBox(height: 6),
-                  Text('• Milk, Eggs, Bread\n• Green tea\n• Apples & Bananas\n• Almonds', style: TextStyle(fontSize: 13, height: 1.4)),
+                children: [
+                  Text(AppLocalizations.of(context).groceryListTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 6),
+                  Text(AppLocalizations.of(context).groceryListItems, style: const TextStyle(fontSize: 13, height: 1.4)),
                 ],
               ),
             ),
@@ -411,17 +411,17 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Meeting Agenda', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  SizedBox(height: 6),
-                  Text('• Review project timeline\n• Q4 design budget review\n• Client presentation at 4 PM', style: TextStyle(fontSize: 13, height: 1.4)),
+                children: [
+                  Text(AppLocalizations.of(context).meetingAgendaTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 6),
+                  Text(AppLocalizations.of(context).meetingAgendaItems, style: const TextStyle(fontSize: 13, height: 1.4)),
                 ],
               ),
             ),
             const Spacer(),
             Center(
               child: Text(
-                'Tap the lock icon in the top right to return to safety suite.',
+                AppLocalizations.of(context).tapLockToReturn,
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ),

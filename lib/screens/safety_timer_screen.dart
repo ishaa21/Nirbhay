@@ -153,9 +153,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
     } catch (_) {}
     ScaffoldMessenger.of(context).showMaterialBanner(
       MaterialBanner(
-        content: const Text(
-          'Countdown ended. The server will verify check-in status and dispatch emergency SMS to your contacts if no check-in is received.',
-          style: TextStyle(color: Color(0xFF5D4037), fontSize: 13),
+        content: Text(
+          AppLocalizations.of(context).countdownEndedVerifyStatus,
+          style: const TextStyle(color: Color(0xFF5D4037), fontSize: 13),
         ),
         backgroundColor: _warningBg,
         leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD84315)),
@@ -165,14 +165,14 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
               _loadActiveTimer();
             },
-            child: const Text('REFRESH', style: TextStyle(color: _primary, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).refreshUpper, style: const TextStyle(color: _primary, fontWeight: FontWeight.bold)),
           ),
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
               _handleCheckIn();
             },
-            child: const Text('I\'M SAFE', style: TextStyle(color: _successColor, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).imSafeUpper, style: const TextStyle(color: _successColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -202,23 +202,23 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
 
     if (res['success'] == true) {
       _setActiveTimer(res['timer'] as SafetyTimerModel, null);
-      _showSnack('Safety Timer started for $_selectedMinutes minutes.', _primary);
+      _showSnack(AppLocalizations.of(context).safetyTimerStartedForMinutes(_selectedMinutes), _primary);
     } else if (res['alreadyActive'] == true) {
-      _showSnack('A timer is already active. Refreshing...', Colors.orange.shade800);
+      _showSnack(AppLocalizations.of(context).timerAlreadyActiveRefreshing, Colors.orange.shade800);
       await _loadActiveTimer();
     } else if (res['offline'] == true) {
       _showOfflineDialog(res['message'] as String);
     } else {
-      _showSnack(res['message'] ?? 'Failed to start timer.', _error);
+      _showSnack(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).failedToStartTimer), _error);
     }
   }
 
   Future<void> _handleCheckIn() async {
     if (_processing || _activeTimer == null) return;
     final confirmed = await _showConfirmDialog(
-      title: 'Check In — I Am Safe',
-      body: 'This will mark you safe and stop the timer. Your emergency contacts will NOT be alerted.',
-      confirmLabel: 'Check In Now',
+      title: AppLocalizations.of(context).checkInSafeDialogTitle,
+      body: AppLocalizations.of(context).checkInSafeDialogBody,
+      confirmLabel: AppLocalizations.of(context).checkInNowBtn,
       confirmColor: _successColor,
     );
     if (!confirmed || !mounted) return;
@@ -237,20 +237,20 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
       _countdownTimer?.cancel();
       ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
       setState(() => _activeTimer = null);
-      _showSnack('✅ Checked in successfully. You are marked safe!', _successColor);
+      _showSnack(AppLocalizations.of(context).checkedInSafeSuccessSnack, _successColor);
     } else if (res['offline'] == true) {
       _showOfflineDialog(res['message'] as String);
     } else {
-      _showSnack(res['message'] ?? 'Check-in failed.', _error);
+      _showSnack(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).checkInFailedSnack), _error);
     }
   }
 
   Future<void> _handleCancel() async {
     if (_processing || _activeTimer == null) return;
     final confirmed = await _showConfirmDialog(
-      title: 'Cancel Safety Timer',
-      body: 'Are you sure you want to cancel the timer? No emergency alerts will be triggered.',
-      confirmLabel: 'Cancel Timer',
+      title: AppLocalizations.of(context).cancelTimerDialogTitle,
+      body: AppLocalizations.of(context).cancelTimerDialogBody,
+      confirmLabel: AppLocalizations.of(context).cancelTimerConfirmBtn,
       confirmColor: Colors.grey.shade700,
     );
     if (!confirmed || !mounted) return;
@@ -269,11 +269,11 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
       _countdownTimer?.cancel();
       ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
       setState(() => _activeTimer = null);
-      _showSnack('Safety timer cancelled.', Colors.grey.shade800);
+      _showSnack(AppLocalizations.of(context).safetyTimerCancelledSnack, Colors.grey.shade800);
     } else if (res['offline'] == true) {
       _showOfflineDialog(res['message'] as String);
     } else {
-      _showSnack(res['message'] ?? 'Cancel failed.', _error);
+      _showSnack(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).cancelFailedSnack), _error);
     }
   }
 
@@ -293,11 +293,11 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
       final updated = res['timer'] as SafetyTimerModel;
       ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
       _setActiveTimer(updated, null);
-      _showSnack('Timer extended by $extendMinutes minutes.', _primary);
+      _showSnack(AppLocalizations.of(context).timerExtendedSuccess, _primary);
     } else if (res['offline'] == true) {
       _showOfflineDialog(res['message'] as String);
     } else {
-      _showSnack(res['message'] ?? 'Extend failed.', _error);
+      _showSnack(AppLocalizations.of(context).localizeBackendMessage(res['message'], fallback: AppLocalizations.of(context).extendFailedSnack), _error);
     }
   }
 
@@ -308,10 +308,10 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: _cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Session Expired', style: TextStyle(fontWeight: FontWeight.bold, color: _primary)),
-        content: const Text(
-          'Your login session has expired. Please sign in again to continue managing your Safety Timer.',
-          style: TextStyle(color: _onSurfaceVariant, fontSize: 13.5),
+        title: Text(AppLocalizations.of(context).sessionExpiredDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, color: _primary)),
+        content: Text(
+          AppLocalizations.of(context).sessionExpiredDialogBody,
+          style: const TextStyle(color: _onSurfaceVariant, fontSize: 13.5),
         ),
         actions: [
           ElevatedButton(
@@ -326,7 +326,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 (route) => false,
               );
             },
-            child: const Text('Sign In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).signIn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -340,10 +340,10 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
         backgroundColor: _cardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
-          children: const [
-            Icon(Icons.wifi_off_rounded, color: _error, size: 24),
-            SizedBox(width: 8),
-            Text('Network Required', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _primary)),
+          children: [
+            const Icon(Icons.wifi_off_rounded, color: _error, size: 24),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context).translate('networkRequiredHeading'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _primary)),
           ],
         ),
         content: Text(
@@ -377,9 +377,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Extend Timer Duration',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
+                  Text(
+                    AppLocalizations.of(context).translate('extendTimerDurationTitle'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 20),
@@ -388,9 +388,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Add more time if your journey or activity is taking longer than expected:',
-                style: TextStyle(fontSize: 13, color: _onSurfaceVariant),
+              Text(
+                AppLocalizations.of(context).translate('extendTimerDurationDesc'),
+                style: const TextStyle(fontSize: 13, color: _onSurfaceVariant),
               ),
               const SizedBox(height: 16),
               Row(
@@ -410,7 +410,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         child: Text(
-                          '+$min\nmin',
+                          AppLocalizations.of(context).addMinutesShort(min),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _primary, height: 1.2),
                         ),
@@ -443,7 +443,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
           TextButton(
             style: TextButton.styleFrom(foregroundColor: _onSurfaceVariant),
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Go Back', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(AppLocalizations.of(context).goBackBtn, style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -662,21 +662,21 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded, color: _error, size: 22),
-              SizedBox(width: 8),
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: _error, size: 22),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '⚡ EXPIRING SOON! CHECK IN NOW',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: _error, fontSize: 14),
+                  AppLocalizations.of(context).expiringSoonCheckInNow,
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: _error, fontSize: 14),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Less than 1 minute remains! If you do not check in, the server will dispatch an emergency alert to your saved contacts.',
-            style: TextStyle(fontSize: 12.5, color: _onSurfaceVariant, height: 1.4),
+          Text(
+            AppLocalizations.of(context).lessThanOneMinRemains,
+            style: const TextStyle(fontSize: 12.5, color: _onSurfaceVariant, height: 1.4),
           ),
           const SizedBox(height: 10),
           Row(
@@ -803,7 +803,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
         Row(
           children: _durations.map((min) {
             final selected = _selectedMinutes == min;
-            final label = min < 60 ? '$min\nMIN' : '1\nHOUR';
+            final label = min < 60
+                ? '$min\n${AppLocalizations.of(context).unitMin}'
+                : '1\n${AppLocalizations.of(context).unitHour}';
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -904,9 +906,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Enter timer duration in minutes (1 to 1440 min / 24 hrs):',
-              style: TextStyle(fontSize: 13, color: _onSurfaceVariant, height: 1.4),
+            Text(
+              AppLocalizations.of(context).enterTimerDurationHint,
+              style: const TextStyle(fontSize: 13, color: _onSurfaceVariant, height: 1.4),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -950,9 +952,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Quick presets:',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _onSurfaceVariant),
+            Text(
+              AppLocalizations.of(context).translate('quickPresetsLabel'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _onSurfaceVariant),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -975,7 +977,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                       border: Border.all(color: _outlineVariant),
                     ),
                     child: Text(
-                      '$mins min',
+                      AppLocalizations.of(context).minutesShort(mins),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1011,13 +1013,13 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                   _customMode = false;
                 });
                 Navigator.of(dialogCtx).pop();
-                _showSnack('Custom duration set to $val minutes.', _primary);
+                _showSnack(AppLocalizations.of(context).customDurationSetToMinutes(val), _primary);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(
-                      'Please enter a valid duration between 1 and 1440 minutes.',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      AppLocalizations.of(context).validMinutesRangeError,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                     ),
                     backgroundColor: _error,
                     behavior: SnackBarBehavior.floating,
@@ -1067,7 +1069,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               child: OutlinedButton.icon(
                 onPressed: _processing ? null : _showExtendSheet,
                 icon: const Icon(Icons.timer_outlined, color: _primary, size: 20),
-                label: const Text('Extend', style: TextStyle(color: _primary, fontWeight: FontWeight.w700, fontSize: 15)),
+                label: Text(AppLocalizations.of(context).extendAction, style: const TextStyle(color: _primary, fontWeight: FontWeight.w700, fontSize: 15)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _primary,
                   backgroundColor: _cardBg,
@@ -1082,7 +1084,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               child: OutlinedButton.icon(
                 onPressed: _processing ? null : _handleCancel,
                 icon: const Icon(Icons.cancel_outlined, color: _error, size: 20),
-                label: const Text('Cancel', style: TextStyle(color: _error, fontWeight: FontWeight.w700, fontSize: 15)),
+                label: Text(AppLocalizations.of(context).cancel, style: const TextStyle(color: _error, fontWeight: FontWeight.w700, fontSize: 15)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _error,
                   backgroundColor: _cardBg,
@@ -1130,9 +1132,9 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 child: const Icon(Icons.timer_rounded, color: _primary, size: 18),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Timer Active',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _primary),
+              Text(
+                AppLocalizations.of(context).timerActive,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _primary),
               ),
               const Spacer(),
               GestureDetector(

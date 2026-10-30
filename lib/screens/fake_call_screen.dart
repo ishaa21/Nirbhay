@@ -318,7 +318,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Fake call armed! Incoming call in $selectedDelaySeconds seconds.'),
+        content: Text(AppLocalizations.of(context).fakeCallArmedInSeconds(selectedDelaySeconds)),
         backgroundColor: _primary,
         behavior: SnackBarBehavior.floating,
       ),
@@ -338,8 +338,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
     });
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Scheduled fake call cancelled.'),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).scheduledFakeCallCancelled),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -407,26 +407,25 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   Future<void> _handleEmergencyEscalation() async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
-          children: const [
-            Icon(Icons.warning_rounded, color: _error, size: 24),
-            SizedBox(width: 8),
-            Text('Activate Real SOS?', style: TextStyle(color: _error, fontWeight: FontWeight.bold)),
+          children: [
+            const Icon(Icons.warning_rounded, color: _error, size: 24),
+            const SizedBox(width: 8),
+            Text(l10n.activateRealSosDialogTitle, style: const TextStyle(color: _error, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
-          'This will IMMEDIATELY notify your saved emergency contacts with your live location. Use only if in real danger.',
-        ),
+        content: Text(l10n.activateRealSosDesc),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: _error),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Trigger Real SOS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(l10n.triggerRealSosBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -443,8 +442,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
         LocationUpdateService().start(sosId: incident.id);
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🚨 Real SOS Alert Triggered! Contacts notified.'),
+        SnackBar(
+          content: Text(l10n.realSosAlertTriggeredNotif),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -549,14 +548,14 @@ class FakeCallScreenState extends State<FakeCallScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Call Armed: Ringing in ${countdownRemainingSeconds}s',
+                  AppLocalizations.of(context).callArmedRingingIn(countdownRemainingSeconds),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _success),
                 ),
               ),
               IconButton(
                 onPressed: cancelScheduledCall,
                 icon: const Icon(Icons.close_rounded, color: _error),
-                tooltip: 'Cancel Call',
+                tooltip: AppLocalizations.of(context).cancelScheduledCallBtn,
               ),
             ],
           ),
@@ -576,7 +575,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
                 side: const BorderSide(color: _error),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('CANCEL SCHEDULED CALL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              child: Text(AppLocalizations.of(context).cancelScheduledCallBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ),
         ],
@@ -584,7 +583,31 @@ class FakeCallScreenState extends State<FakeCallScreen>
     );
   }
 
+  String _getPresetLabel(CallerAvatarPreset preset, AppLocalizations l10n) {
+    switch (preset.label) {
+      case 'Mom': return l10n.callerMom;
+      case 'Dad': return l10n.callerDad;
+      case 'Boss': return l10n.callerBoss;
+      case 'Police': return l10n.callerPolice;
+      case 'Doctor': return l10n.callerDoctor;
+      case 'Friend': return l10n.callerFriendPreset;
+      default: return preset.label;
+    }
+  }
+
+  String _getPresetSubtitle(CallerAvatarPreset preset, AppLocalizations l10n) {
+    switch (preset.subtitle) {
+      case 'Mobile': return l10n.callerMobile;
+      case 'Home': return l10n.callerHome;
+      case 'Work': return l10n.callerWork;
+      case 'Emergency Service': return l10n.callerEmergencyService;
+      case 'Hospital': return l10n.callerHospital;
+      default: return preset.subtitle;
+    }
+  }
+
   Widget _buildCallerCustomizationCard() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -598,7 +621,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(AppLocalizations.of(context).translate('callerPresets'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+          Text(l10n.callerPresets, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
           const SizedBox(height: 12),
 
           // Preset Avatars
@@ -636,7 +659,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            preset.label,
+                            _getPresetLabel(preset, l10n),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -657,8 +680,8 @@ class FakeCallScreenState extends State<FakeCallScreen>
           TextField(
             controller: callerNameController,
             decoration: InputDecoration(
-              labelText: 'Caller Name',
-              hintText: 'e.g. Mom, Inspector Rao, Boss',
+              labelText: l10n.callerNameLabel,
+              hintText: l10n.callerNameInputHint,
               prefixIcon: Icon(selectedPreset.icon, color: selectedPreset.iconColor),
               filled: true,
               fillColor: _surface,
@@ -673,12 +696,13 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   Widget _buildDelaySelector() {
+    final l10n = AppLocalizations.of(context);
     final delays = [
-      (0, 'Now', Icons.bolt_rounded),
-      (10, '10 sec', Icons.timer_outlined),
-      (30, '30 sec', Icons.schedule_rounded),
-      (60, '60 sec', Icons.hourglass_bottom_rounded),
-      (300, '5 min', Icons.alarm_rounded),
+      (0, l10n.delayNow, Icons.bolt_rounded),
+      (10, l10n.delay10s, Icons.timer_outlined),
+      (30, l10n.delay30s, Icons.schedule_rounded),
+      (60, l10n.delay60s, Icons.hourglass_bottom_rounded),
+      (300, l10n.delay5min, Icons.alarm_rounded),
     ];
 
     return Container(
@@ -694,7 +718,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(AppLocalizations.of(context).translate('triggerDelay'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+          Text(l10n.triggerDelay, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -746,6 +770,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   Widget _buildRingtoneSettingsCard() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -762,7 +787,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(AppLocalizations.of(context).translate('ringtoneAndAudio'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+              Text(l10n.ringtoneAndAudio, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
               TextButton.icon(
                 onPressed: isArmed
                     ? null
@@ -781,7 +806,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   color: isArmed ? Colors.grey : _primary,
                 ),
                 label: Text(
-                  isPreviewPlaying ? 'Stop' : 'Preview',
+                  isPreviewPlaying ? l10n.stopRingtonePreview : l10n.previewRingtoneLabel,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -798,9 +823,9 @@ class FakeCallScreenState extends State<FakeCallScreen>
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Audible bundled telephone ringtone plays on the media/ringer channel when incoming call triggers.',
-            style: TextStyle(fontSize: 12, color: _onSurfaceVariant, height: 1.3),
+          Text(
+            l10n.ringtoneChannelExplanation,
+            style: const TextStyle(fontSize: 12, color: _onSurfaceVariant, height: 1.3),
           ),
           const SizedBox(height: 12),
           Row(
@@ -849,14 +874,13 @@ class FakeCallScreenState extends State<FakeCallScreen>
     );
   }
 
-
-
   Widget _buildTriggerButton() {
+    final l10n = AppLocalizations.of(context);
     final String label = selectedDelaySeconds == 0
-        ? 'Ring Phone Immediately'
+        ? l10n.ringPhoneImmediately
         : (selectedDelaySeconds == 300
-            ? 'Arm Call (5 min Delay)'
-            : 'Arm Call (${selectedDelaySeconds}s Delay)');
+            ? l10n.armCallDelayVal(300)
+            : l10n.armCallDelayVal(selectedDelaySeconds));
 
     return SizedBox(
       width: double.infinity,
@@ -902,9 +926,9 @@ class FakeCallScreenState extends State<FakeCallScreen>
                         color: Colors.white.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        'SIMULATED CALL • NIRBHAY',
-                        style: TextStyle(fontSize: 10, letterSpacing: 0.8, color: Colors.white70, fontWeight: FontWeight.bold),
+                      child: Text(
+                        AppLocalizations.of(context).simulatedCallNirbhayBadge,
+                        style: const TextStyle(fontSize: 10, letterSpacing: 0.8, color: Colors.white70, fontWeight: FontWeight.bold),
                       ),
                     ),
                     // Quick Emergency Escalation Pill
@@ -918,10 +942,10 @@ class FakeCallScreenState extends State<FakeCallScreen>
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 14),
-                            SizedBox(width: 4),
-                            Text('REAL SOS', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 14),
+                            const SizedBox(width: 4),
+                            Text(AppLocalizations.of(context).realSosBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -966,7 +990,9 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   Text(
                     isCallConnected
                         ? _formatDuration(callDurationSeconds)
-                        : (selectedPreset.subtitle.isNotEmpty ? selectedPreset.subtitle : 'Incoming Call'),
+                        : (selectedPreset.subtitle.isNotEmpty
+                            ? _getPresetSubtitle(selectedPreset, AppLocalizations.of(context))
+                            : AppLocalizations.of(context).incomingCall),
                     style: TextStyle(
                       fontSize: 16,
                       color: isCallConnected ? const Color(0xFF4CAF50) : Colors.white60,
@@ -989,6 +1015,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   Widget _buildIncomingCallActionButtons() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(40, 0, 40, 48),
       child: Row(
@@ -1010,7 +1037,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 34),
                 ),
                 const SizedBox(height: 10),
-                const Text('Decline', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(l10n.declineCall, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -1031,7 +1058,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   child: const Icon(Icons.call_rounded, color: Colors.white, size: 34),
                 ),
                 const SizedBox(height: 10),
-                const Text('Accept', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(l10n.acceptCall, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -1041,13 +1068,14 @@ class FakeCallScreenState extends State<FakeCallScreen>
   }
 
   Widget _buildConnectedCallControls() {
+    final l10n = AppLocalizations.of(context);
     final controls = [
-      (Icons.mic_off_rounded, 'Mute'),
-      (Icons.dialpad_rounded, 'Keypad'),
-      (Icons.volume_up_rounded, 'Speaker'),
-      (Icons.add_rounded, 'Add Call'),
-      (Icons.videocam_rounded, 'Video'),
-      (Icons.contacts_rounded, 'Contacts'),
+      (Icons.mic_off_rounded, l10n.callMute),
+      (Icons.dialpad_rounded, l10n.callKeypad),
+      (Icons.volume_up_rounded, l10n.callSpeaker),
+      (Icons.add_rounded, l10n.callAdd),
+      (Icons.videocam_rounded, l10n.callVideo),
+      (Icons.contacts_rounded, l10n.callContacts),
     ];
 
     return Padding(
@@ -1096,7 +1124,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
                   child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 36),
                 ),
                 const SizedBox(height: 8),
-                const Text('End Call', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(l10n.endCall, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
