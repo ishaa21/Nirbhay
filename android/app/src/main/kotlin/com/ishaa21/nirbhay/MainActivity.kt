@@ -19,6 +19,7 @@ class MainActivity : FlutterActivity() {
     private var smsPlugin: NirbhaySmsPlugin? = null
     private var shakePlugin: NirbhayShakePlugin? = null
     private var fakeCallPlugin: NirbhayFakeCallPlugin? = null
+    private var routeAlertPlugin: NirbhayRouteAlertPlugin? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -26,6 +27,7 @@ class MainActivity : FlutterActivity() {
         smsPlugin = NirbhaySmsPlugin(this, flutterEngine)
         shakePlugin = NirbhayShakePlugin(this, flutterEngine)
         fakeCallPlugin = NirbhayFakeCallPlugin(this, flutterEngine)
+        routeAlertPlugin = NirbhayRouteAlertPlugin(this, flutterEngine)
         handleIntent(intent)
     }
 
@@ -91,6 +93,14 @@ class MainActivity : FlutterActivity() {
 
             Log.i(TAG, "ACTION_ACCEPT_FAKE_CALL for '$callerName' ($callerSubtitle)")
             NirbhayFakeCallPlugin.sendTriggerEventToFlutter(callerName, callerSubtitle, true)
+        } else if (action == NirbhayRouteAlertPlugin.ACTION_VIEW_HOTSPOT) {
+            val hotspotId = intent.getStringExtra(NirbhayRouteAlertPlugin.EXTRA_HOTSPOT_ID)
+            val lat = intent.getDoubleExtra(NirbhayRouteAlertPlugin.EXTRA_HOTSPOT_LAT, 0.0)
+            val lng = intent.getDoubleExtra(NirbhayRouteAlertPlugin.EXTRA_HOTSPOT_LNG, 0.0)
+            NirbhayRouteAlertPlugin.pendingHotspotId = hotspotId
+            NirbhayRouteAlertPlugin.pendingHotspotLat = lat
+            NirbhayRouteAlertPlugin.pendingHotspotLng = lng
+            Log.i(TAG, "ACTION_VIEW_HOTSPOT for '$hotspotId' at $lat,$lng")
         }
     }
 

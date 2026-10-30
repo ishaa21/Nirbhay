@@ -17,6 +17,22 @@ router.get('/posts/:id', optionalAuth, communityController.getPostById);
 // Comments list for a post
 router.get('/posts/:id/comments', optionalAuth, communityController.getComments);
 
+// ── Safety Hotspots & Heatmap Routes ──────────────────────────────────────
+// Query safety hotspots (bounds or radius)
+router.get('/safety-hotspots', optionalAuth, communityController.getSafetyHotspots);
+
+// Nearby safety hotspots (latitude, longitude, radiusMeters)
+router.get('/safety-hotspots/nearby', optionalAuth, communityController.getNearbyHotspots);
+
+// Evaluate route waypoints against upcoming safety hotspots
+router.post('/safety-hotspots/route-check', optionalAuth, communityController.checkRouteHotspots);
+
+// Single safety hotspot details by ID
+router.get('/safety-hotspots/:id', optionalAuth, communityController.getHotspotById);
+
+// Submit community verification / dispute feedback on hotspot (protected)
+router.post('/safety-hotspots/:id/feedback', authenticateToken, communityController.submitHotspotFeedback);
+
 // ── Protected Routes (Require JWT Token) ───────────────────────────────────
 // Create new report / post
 router.post('/posts', authenticateToken, communityController.createPost);

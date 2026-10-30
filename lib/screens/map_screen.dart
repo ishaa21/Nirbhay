@@ -8,6 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/nearby_place_model.dart';
 import '../services/api_config.dart';
 import '../services/nearby_service.dart';
+import '../models/safety_hotspot_model.dart';
+import '../services/community_service.dart';
+import '../widgets/hotspot_details_sheet.dart';
+import 'package:flutter/services.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -54,6 +58,14 @@ class _MapScreenState extends State<MapScreen> {
   String _attribution = 'Data © OpenStreetMap contributors, ODbL 1.0';
 
   // Category filter definitions
+  // Safety Heatmap state
+  final CommunityService _communityService = CommunityService();
+  bool _showSafetyHeatmap = true;
+  List<SafetyHotspotModel> _hotspots = [];
+  bool _isLoadingHotspots = false;
+  String _selectedHotspotCategory = 'ALL';
+  static const MethodChannel _routeAlertChannel = MethodChannel('com.ishaa21.nirbhay/route_alerts');
+
   final List<Map<String, dynamic>> _categories = [
     {'key': 'all', 'label': 'All Services', 'icon': Icons.shield_rounded},
     {'key': 'police', 'label': 'Police Stations', 'icon': Icons.local_police_rounded},
@@ -66,6 +78,7 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _loadLocationAndPlaces();
+    _checkForPendingHotspotTap();
   }
 
   @override
@@ -97,7 +110,10 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     _currentPosition = locResult.position;
-    await _fetchPlacesForCategory(_selectedCategory);
+    await Future.wait([
+      _fetchPlacesForCategory(_selectedCategory),
+      _fetchSafetyHotspots(),
+    ]);
   }
 
   void _onCategorySelected(String categoryKey) {
@@ -112,6 +128,66 @@ class _MapScreenState extends State<MapScreen> {
     _categoryDebounceTimer = Timer(const Duration(milliseconds: 300), () {
       _fetchPlacesForCategory(categoryKey);
     });
+  }
+
+  Future<void> _checkForPendingHotspotTap() async {
+    try {
+      final result = await _routeAlertChannel.invokeMapMethod<String, dynamic>('getPendingHotspotTap');
+      if (result != null && mounted) {
+        final lat = (result['latitude'] as num?)?.toDouble();
+        final lng = (result['longitude'] as num?)?.toDouble();
+        final hotspotId = result['hotspotId']?.toString();
+        if (lat != null && lng != null) {
+          _mapController.move(LatLng(lat, lng), 16.0);
+          if (hotspotId != null) {
+            _loadAndOpenHotspot(hotspotId);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[MapScreen] Check pending hotspot tap: $e');
+    }
+  }
+
+  Future<void> _fetchSafetyHotspots() async {
+    if (_currentPosition == null) return;
+    setState(() => _isLoadingHotspots = true);
+    try {
+      final res = await _communityService.getSafetyHotspots(
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        radiusKm: 15.0,
+        category: _selectedHotspotCategory == 'ALL' ? null : _selectedHotspotCategory,
+      );
+      if (mounted && res['success'] == true && res['hotspots'] is List<SafetyHotspotModel>) {
+        setState(() {
+          _hotspots = res['hotspots'] as List<SafetyHotspotModel>;
+        });
+      }
+    } catch (e) {
+      debugPrint('[MapScreen] Error fetching safety hotspots: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingHotspots = false);
+    }
+  }
+
+  Future<void> _loadAndOpenHotspot(String hotspotId) async {
+    try {
+      final res = await _communityService.getHotspotDetails(hotspotId);
+      if (mounted && res['success'] == true && res['hotspot'] is SafetyHotspotModel) {
+        _openHotspotDetails(res['hotspot'] as SafetyHotspotModel);
+      }
+    } catch (e) {
+      debugPrint('[MapScreen] Error opening hotspot: $e');
+    }
+  }
+
+  void _openHotspotDetails(SafetyHotspotModel hotspot) {
+    HotspotDetailsSheet.show(
+      context,
+      hotspot: hotspot,
+      onFeedbackSubmitted: _fetchSafetyHotspots,
+    );
   }
 
   /// Fetches places for the selected category from the backend
@@ -203,6 +279,7 @@ class _MapScreenState extends State<MapScreen> {
   void _centerOnUser() {
     if (_currentPosition == null) {
       _loadLocationAndPlaces();
+    _checkForPendingHotspotTap();
       return;
     }
     _mapController.move(
@@ -334,6 +411,10 @@ class _MapScreenState extends State<MapScreen> {
           // 2. Top Header Overlay (Title, Emergency Pill, GPS indicator)
           _buildTopHeaderOverlay(),
 
+          // 2b. Safety Heatmap Category Chips (when heatmap is enabled)
+          if (_showSafetyHeatmap)
+            _buildHeatmapCategoryBar(),
+
           // 3. Floating Map Controls (Re-center & Fit bounds)
           _buildFloatingMapControls(),
 
@@ -377,6 +458,18 @@ class _MapScreenState extends State<MapScreen> {
           userAgentPackageName: ApiConfig.mapUserAgentPackage,
           maxZoom: 19,
         ),
+        // Safety Heatmap Zones
+        if (_showSafetyHeatmap && _hotspots.isNotEmpty)
+          CircleLayer(
+            circles: _hotspots.map((h) => CircleMarker(
+              point: LatLng(h.latitude, h.longitude),
+              radius: h.radiusMeters,
+              useRadiusInMeter: true,
+              color: h.color.withOpacity(0.25),
+              borderColor: h.borderColor,
+              borderStrokeWidth: 1.5,
+            )).toList(),
+          ),
         // Place and User Markers
         MarkerLayer(
           markers: _buildMapMarkers(),
@@ -431,6 +524,54 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
       );
+    }
+
+    // Safety Hotspot Centroid Pins
+    if (_showSafetyHeatmap) {
+      for (final hotspot in _hotspots) {
+        markers.add(
+          Marker(
+            point: LatLng(hotspot.latitude, hotspot.longitude),
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            child: GestureDetector(
+              onTap: () => _openHotspotDetails(hotspot),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: hotspot.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: hotspot.borderColor.withOpacity(0.55),
+                      blurRadius: 7,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 11, color: Colors.white),
+                      const SizedBox(width: 1),
+                      Text(
+                        '${hotspot.reportCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     // Nearby Service Place Markers
@@ -580,6 +721,81 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+
+  /// Category filter pills specifically for the Safety Heatmap layer
+  Widget _buildHeatmapCategoryBar() {
+    final l10n = AppLocalizations.of(context);
+    final categories = [
+      {'key': 'ALL', 'label': l10n.allSafetyCategories, 'icon': Icons.radar_rounded},
+      {'key': 'HARASSMENT', 'label': l10n.catHarassment, 'icon': Icons.warning_rounded},
+      {'key': 'UNSAFE_AREA', 'label': l10n.catUnsafeArea, 'icon': Icons.visibility_off_rounded},
+      {'key': 'SUSPICIOUS_ACTIVITY', 'label': l10n.catSuspiciousActivity, 'icon': Icons.remove_red_eye_rounded},
+      {'key': 'THEFT', 'label': l10n.catTheft, 'icon': Icons.pan_tool_rounded},
+      {'key': 'ROAD_SAFETY', 'label': l10n.catRoadSafety, 'icon': Icons.traffic_rounded},
+    ];
+
+    return Positioned(
+      top: 96,
+      left: 14,
+      right: 64,
+      child: SizedBox(
+        height: 36,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: categories.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            final cat = categories[index];
+            final isSelected = _selectedHotspotCategory == cat['key'];
+            return InkWell(
+              onTap: () {
+                setState(() => _selectedHotspotCategory = cat['key'] as String);
+                _fetchSafetyHotspots();
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFE53935) : Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFFB71C1C) : _border,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      cat['icon'] as IconData,
+                      size: 13,
+                      color: isSelected ? Colors.white : _primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      cat['label'] as String,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? Colors.white : _primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
   /// Floating map buttons (My Location and Fit View)
   Widget _buildFloatingMapControls() {
     return Positioned(
@@ -587,6 +803,30 @@ class _MapScreenState extends State<MapScreen> {
       right: 14,
       child: Column(
         children: [
+          // Safety Heatmap Toggle
+          FloatingActionButton.small(
+            heroTag: 'btn_heatmap_toggle',
+            backgroundColor: _showSafetyHeatmap ? const Color(0xFFE53935) : _cardBg,
+            foregroundColor: _showSafetyHeatmap ? Colors.white : _primary,
+            elevation: 3,
+            tooltip: _showSafetyHeatmap
+                ? AppLocalizations.of(context).hideHeatmap
+                : AppLocalizations.of(context).showHeatmap,
+            onPressed: () {
+              setState(() => _showSafetyHeatmap = !_showSafetyHeatmap);
+            },
+            child: _isLoadingHotspots
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _showSafetyHeatmap ? Colors.white : _primary,
+                    ),
+                  )
+                : const Icon(Icons.local_fire_department_rounded, size: 18),
+          ),
+          const SizedBox(height: 8),
           // Re-center on user
           FloatingActionButton.small(
             heroTag: 'btn_recenter',
@@ -966,6 +1206,7 @@ class _MapScreenState extends State<MapScreen> {
                 await Geolocator.openLocationSettings();
               }
               _loadLocationAndPlaces();
+    _checkForPendingHotspotTap();
             },
             icon: const Icon(Icons.refresh_rounded, size: 16),
             label: Text(

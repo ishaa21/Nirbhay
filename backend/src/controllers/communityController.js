@@ -1,4 +1,10 @@
 const db = require('../config/db');
+const {
+  clusterReports,
+  computeHotspotDetails,
+  evaluateRouteProximity,
+  haversineDistanceMeters,
+} = require('../services/hotspotScoringService');
 
 // Allowed categories
 const ALLOWED_CATEGORIES = [
@@ -1036,6 +1042,494 @@ const getMyPosts = async (req, res) => {
   }
 };
 
+/**
+ * Helper to fetch active qualifying safety posts for hotspot calculation.
+ */
+const fetchActiveSafetyReports = async ({
+  minLat,
+  minLng,
+  maxLat,
+  maxLng,
+  latitude,
+  longitude,
+  radiusKm,
+  category,
+} = {}) => {
+  const conditions = [
+    "p.status = 'ACTIVE'",
+    "p.moderation_status != 'BLOCKED'",
+    "p.resolution_status != 'RESOLVED'",
+    "NOT (p.moderation_status = 'FLAGGED' AND p.reports_count >= 3)",
+    "p.latitude IS NOT NULL",
+    "p.longitude IS NOT NULL",
+    "p.created_at >= NOW() - INTERVAL '30 days'",
+  ];
+  const params = [];
+
+  // Bounding box filter
+  if (
+    minLat !== undefined &&
+    minLng !== undefined &&
+    maxLat !== undefined &&
+    maxLng !== undefined
+  ) {
+    params.push(parseFloat(minLat), parseFloat(maxLat), parseFloat(minLng), parseFloat(maxLng));
+    conditions.push(
+      `p.latitude >= $${params.length - 3} AND p.latitude <= $${params.length - 2}`
+    );
+    conditions.push(
+      `p.longitude >= $${params.length - 1} AND p.longitude <= $${params.length}`
+    );
+  } else if (
+    latitude !== undefined &&
+    longitude !== undefined &&
+    !isNaN(parseFloat(latitude)) &&
+    !isNaN(parseFloat(longitude))
+  ) {
+    const rKm = Math.min(100, Math.max(0.5, parseFloat(radiusKm) || 10));
+    params.push(parseFloat(latitude), parseFloat(longitude), rKm);
+    const latIdx = params.length - 2;
+    const lngIdx = params.length - 1;
+    const radIdx = params.length;
+
+    const haversine = `(6371 * acos(
+      LEAST(1.0, GREATEST(-1.0,
+        cos(radians($${latIdx})) * cos(radians(p.latitude)) *
+        cos(radians(p.longitude) - radians($${lngIdx})) +
+        sin(radians($${latIdx})) * sin(radians(p.latitude))
+      ))
+    ))`;
+    conditions.push(`${haversine} <= $${radIdx}`);
+  }
+
+  // Category filter
+  if (category && category !== 'ALL') {
+    const upperCat = category.toUpperCase();
+    if (ALLOWED_CATEGORIES.includes(upperCat)) {
+      params.push(upperCat);
+      conditions.push(`p.category = $${params.length}`);
+    }
+  }
+
+  const sql = `
+    SELECT p.id, p.user_id, p.category, p.title, p.description,
+           p.location_name, p.latitude, p.longitude,
+           p.status, p.moderation_status, p.resolution_status,
+           p.upvotes_count, p.comments_count, p.reports_count,
+           p.confirmations_count, p.disputes_count,
+           p.created_at, p.updated_at,
+           u.full_name AS author_full_name
+    FROM community_posts p
+    JOIN users u ON u.id = p.user_id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY p.created_at DESC
+    LIMIT 200
+  `;
+
+  const result = await db.query(sql, params);
+  return result.rows.map((row) => ({
+    id: row.id,
+    user_id: row.user_id,
+    category: row.category,
+    title: row.title,
+    description: row.description,
+    location_name: row.location_name,
+    latitude: parseFloat(row.latitude),
+    longitude: parseFloat(row.longitude),
+    upvotes_count: row.upvotes_count,
+    confirmations_count: row.confirmations_count,
+    disputes_count: row.disputes_count,
+    created_at: row.created_at,
+    author_full_name: maskAuthorName(row.author_full_name),
+  }));
+};
+
+/**
+ * GET /api/community/safety-hotspots
+ * Query active safety hotspots with bounding box or radius filters.
+ */
+const getSafetyHotspots = async (req, res) => {
+  try {
+    const { minLat, minLng, maxLat, maxLng, latitude, longitude, radiusKm, category } = req.query;
+
+    const reports = await fetchActiveSafetyReports({
+      minLat,
+      minLng,
+      maxLat,
+      maxLng,
+      latitude,
+      longitude,
+      radiusKm,
+      category,
+    });
+
+    const clusters = clusterReports(reports);
+    const hotspots = [];
+
+    for (const cluster of clusters) {
+      const details = computeHotspotDetails(cluster);
+      if (details) {
+        hotspots.push(details);
+      }
+    }
+
+    // Sort by risk score descending
+    hotspots.sort((a, b) => b.riskScore - a.riskScore);
+
+    return res.status(200).json({
+      success: true,
+      hotspots,
+      count: hotspots.length,
+      disclaimer:
+        'Safety information is based on community reports. Reports may be incomplete or outdated and do not establish that an area is definitely unsafe. Please use your judgment.',
+    });
+  } catch (error) {
+    console.error('[HOTSPOTS] Error calculating safety hotspots:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to calculate community safety hotspots.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/community/safety-hotspots/nearby
+ * Returns nearby safety hotspots within radius in meters (default 5000m).
+ */
+const getNearbyHotspots = async (req, res) => {
+  try {
+    const { latitude, longitude, radiusMeters, category } = req.query;
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'latitude and longitude query parameters are required.',
+      });
+    }
+
+    const radiusKm = Math.min(50, Math.max(0.1, (parseFloat(radiusMeters) || 5000) / 1000));
+    const reports = await fetchActiveSafetyReports({
+      latitude,
+      longitude,
+      radiusKm,
+      category,
+    });
+
+    const clusters = clusterReports(reports);
+    const hotspots = [];
+
+    for (const cluster of clusters) {
+      const details = computeHotspotDetails(cluster);
+      if (details) {
+        hotspots.push(details);
+      }
+    }
+
+    // Sort by proximity to user
+    const userLat = parseFloat(latitude);
+    const userLng = parseFloat(longitude);
+    hotspots.sort((a, b) => {
+      const distA = haversineDistanceMeters(userLat, userLng, a.center.latitude, a.center.longitude);
+      const distB = haversineDistanceMeters(userLat, userLng, b.center.latitude, b.center.longitude);
+      return distA - distB;
+    });
+
+    return res.status(200).json({
+      success: true,
+      hotspots,
+      count: hotspots.length,
+      disclaimer:
+        'Safety information is based on community reports. Reports may be incomplete or outdated and do not establish that an area is definitely unsafe. Please use your judgment.',
+    });
+  } catch (error) {
+    console.error('[HOTSPOTS] Error fetching nearby hotspots:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve nearby safety hotspots.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/community/safety-hotspots/:id
+ * Fetch detailed information for a specific hotspot by its generated ID.
+ */
+const getHotspotById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Hotspot IDs are formatted as "hotspot_LATx1000_LNGx1000"
+    const match = id.match(/^hotspot_(-?\d+)_(-?\d+)$/);
+    if (!match) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid hotspot identifier format.',
+      });
+    }
+
+    const approxLat = parseInt(match[1], 10) / 1000;
+    const approxLng = parseInt(match[2], 10) / 1000;
+
+    // Search reports within 500m of this centroid
+    const reports = await fetchActiveSafetyReports({
+      latitude: approxLat,
+      longitude: approxLng,
+      radiusKm: 0.6,
+    });
+
+    const clusters = clusterReports(reports);
+    let matchedDetails = null;
+
+    for (const cluster of clusters) {
+      const details = computeHotspotDetails(cluster);
+      if (details && (details.id === id || haversineDistanceMeters(approxLat, approxLng, details.center.latitude, details.center.longitude) <= 400)) {
+        matchedDetails = details;
+        break;
+      }
+    }
+
+    if (!matchedDetails) {
+      return res.status(404).json({
+        success: false,
+        message: 'Safety hotspot not found or reports have expired/been resolved.',
+      });
+    }
+
+    // Fetch recent community comments on reports in this hotspot
+    const postIds = matchedDetails.reports.map((r) => r.id);
+    let comments = [];
+    if (postIds.length > 0) {
+      const commentsSql = `
+        SELECT c.id, c.post_id, c.content, c.created_at,
+               u.full_name AS author_full_name
+        FROM community_comments c
+        JOIN users u ON u.id = c.user_id
+        WHERE c.post_id = ANY($1) AND c.status = 'ACTIVE'
+        ORDER BY c.created_at DESC
+        LIMIT 10
+      `;
+      const commResult = await db.query(commentsSql, [postIds]);
+      comments = commResult.rows.map((row) => ({
+        id: row.id,
+        postId: row.post_id,
+        content: row.content,
+        createdAt: row.created_at,
+        authorName: maskAuthorName(row.author_full_name),
+      }));
+    }
+
+    return res.status(200).json({
+      success: true,
+      hotspot: {
+        ...matchedDetails,
+        comments,
+      },
+      disclaimer:
+        'Safety information is based on community reports. Reports may be incomplete or outdated and do not establish that an area is definitely unsafe. Please use your judgment.',
+    });
+  } catch (error) {
+    console.error('[HOTSPOTS] Error fetching hotspot details:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve safety hotspot details.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/community/safety-hotspots/:id/feedback
+ * Submit verification feedback on a hotspot ('STILL_PRESENT', 'RESOLVED', 'INACCURATE').
+ * Enforces one feedback per user per post to prevent manipulation.
+ */
+const submitHotspotFeedback = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+
+    const { type, postId, comments } = req.body;
+    const allowedFeedback = ['STILL_PRESENT', 'RESOLVED', 'INACCURATE'];
+    if (!type || !allowedFeedback.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: `Feedback type must be one of: ${allowedFeedback.join(', ')}.`,
+      });
+    }
+
+    let targetPostId = postId;
+
+    // If postId is not provided directly, find the primary post associated with this hotspot ID
+    if (!targetPostId) {
+      const match = req.params.id.match(/^hotspot_(-?\d+)_(-?\d+)$/);
+      if (match) {
+        const approxLat = parseInt(match[1], 10) / 1000;
+        const approxLng = parseInt(match[2], 10) / 1000;
+        const reports = await fetchActiveSafetyReports({
+          latitude: approxLat,
+          longitude: approxLng,
+          radiusKm: 0.5,
+        });
+        if (reports.length > 0) {
+          targetPostId = reports[0].id;
+        }
+      }
+    }
+
+    if (!targetPostId || !isValidUuid(targetPostId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid post ID is required to register verification feedback.',
+      });
+    }
+
+    // Check if user already submitted feedback for this post
+    const existing = await db.query(
+      'SELECT id, feedback_type FROM community_post_feedback WHERE post_id = $1 AND user_id = $2',
+      [targetPostId, userId]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'You have already submitted feedback for this safety report.',
+        existingFeedback: existing.rows[0].feedback_type,
+      });
+    }
+
+    // Insert feedback record
+    await db.query(
+      `INSERT INTO community_post_feedback (post_id, user_id, feedback_type, comments)
+       VALUES ($1, $2, $3, $4)`,
+      [targetPostId, userId, type, comments ? comments.trim().substring(0, 500) : null]
+    );
+
+    // Update tallies on post
+    if (type === 'STILL_PRESENT') {
+      await db.query(
+        'UPDATE community_posts SET confirmations_count = confirmations_count + 1 WHERE id = $1',
+        [targetPostId]
+      );
+    } else if (type === 'INACCURATE') {
+      await db.query(
+        'UPDATE community_posts SET disputes_count = disputes_count + 1 WHERE id = $1',
+        [targetPostId]
+      );
+    } else if (type === 'RESOLVED') {
+      await db.query(
+        'UPDATE community_posts SET disputes_count = disputes_count + 1 WHERE id = $1',
+        [targetPostId]
+      );
+
+      // Check if 3 or more users have marked it as resolved
+      const resolvedCountResult = await db.query(
+        "SELECT COUNT(*) AS count FROM community_post_feedback WHERE post_id = $1 AND feedback_type = 'RESOLVED'",
+        [targetPostId]
+      );
+      const resolvedCount = parseInt(resolvedCountResult.rows[0].count, 10);
+      if (resolvedCount >= 3) {
+        await db.query(
+          "UPDATE community_posts SET resolution_status = 'RESOLVED', resolved_at = NOW() WHERE id = $1",
+          [targetPostId]
+        );
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Thank you for helping keep the community safe. Your feedback was recorded.',
+      feedbackType: type,
+    });
+  } catch (error) {
+    console.error('[HOTSPOTS] Error submitting feedback:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to record hotspot feedback.',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/community/safety-hotspots/route-check
+ * Evaluates route coordinates and current user position against upcoming hotspots.
+ */
+const checkRouteHotspots = async (req, res) => {
+  try {
+    const { latitude, longitude, heading, waypoints = [], warningDistanceMeters = 600 } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'latitude and longitude are required in request body.',
+      });
+    }
+
+    const userLat = parseFloat(latitude);
+    const userLng = parseFloat(longitude);
+    const radiusKm = Math.min(25, Math.max(1, (warningDistanceMeters * 3) / 1000));
+
+    // Fetch active reports in proximity of user and route
+    const reports = await fetchActiveSafetyReports({
+      latitude: userLat,
+      longitude: userLng,
+      radiusKm,
+    });
+
+    const clusters = clusterReports(reports);
+    const upcomingHotspots = [];
+
+    const userLocation = {
+      latitude: userLat,
+      longitude: userLng,
+      heading: heading !== undefined ? parseFloat(heading) : null,
+    };
+
+    for (const cluster of clusters) {
+      const hotspot = computeHotspotDetails(cluster);
+      if (!hotspot) continue;
+
+      const proximity = evaluateRouteProximity(
+        hotspot,
+        userLocation,
+        waypoints,
+        350,
+        warningDistanceMeters
+      );
+
+      if (proximity.isApproaching) {
+        upcomingHotspots.push({
+          ...hotspot,
+          distanceMeters: proximity.distanceMeters,
+          effectiveDistanceMeters: proximity.effectiveDistanceMeters,
+          tier: proximity.tier,
+        });
+      }
+    }
+
+    // Sort by closest first
+    upcomingHotspots.sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+    return res.status(200).json({
+      success: true,
+      hasUpcomingHotspots: upcomingHotspots.length > 0,
+      upcomingHotspots,
+      count: upcomingHotspots.length,
+      disclaimer:
+        'Safety information is based on community reports. Reports may be incomplete or outdated and do not establish that an area is definitely unsafe. Please use your judgment.',
+    });
+  } catch (error) {
+    console.error('[HOTSPOTS] Error checking route safety:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to evaluate route safety hotspots.',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getPosts,
   getPostById,
@@ -1049,6 +1543,11 @@ module.exports = {
   deleteComment,
   reportPost,
   getMyPosts,
+  getSafetyHotspots,
+  getNearbyHotspots,
+  getHotspotById,
+  submitHotspotFeedback,
+  checkRouteHotspots,
   ALLOWED_CATEGORIES,
   ALLOWED_REPORT_REASONS,
   maskAuthorName,

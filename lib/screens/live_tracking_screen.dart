@@ -12,6 +12,9 @@ import '../services/api_config.dart';
 import '../models/sos_model.dart';
 import '../models/journey_model.dart';
 import '../l10n/app_localizations.dart';
+import '../services/proactive_route_alert_service.dart';
+import '../models/safety_hotspot_model.dart';
+import '../widgets/hotspot_details_sheet.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
 
@@ -39,6 +42,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
     _fetchActiveIncident();
     _fetchActiveJourney();
     LocationUpdateService().statusNotifier.addListener(_onTrackingStatusChanged);
+    ProactiveRouteAlertService().init();
     _tickerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() {});
     });
@@ -497,6 +501,22 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   maxZoom: 19,
                 ),
                 if (lat != null && lng != null) ...[
+                  if (ProactiveRouteAlertService().activeAlertNotifier.value != null)
+                    CircleLayer(
+                      circles: [
+                        CircleMarker(
+                          point: LatLng(
+                            ProactiveRouteAlertService().activeAlertNotifier.value!.latitude,
+                            ProactiveRouteAlertService().activeAlertNotifier.value!.longitude,
+                          ),
+                          radius: ProactiveRouteAlertService().activeAlertNotifier.value!.radiusMeters,
+                          useRadiusInMeter: true,
+                          color: ProactiveRouteAlertService().activeAlertNotifier.value!.color.withOpacity(0.28),
+                          borderColor: ProactiveRouteAlertService().activeAlertNotifier.value!.borderColor,
+                          borderStrokeWidth: 2.0,
+                        ),
+                      ],
+                    ),
                   CircleLayer(
                     circles: [
                       CircleMarker(
@@ -649,6 +669,104 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 ),
               ),
             ),
+          ),
+
+          // Proactive Route Safety Alert Heads-Up Banner
+          ValueListenableBuilder<SafetyHotspotModel?>(
+            valueListenable: ProactiveRouteAlertService().activeAlertNotifier,
+            builder: (context, activeAlert, _) {
+              if (activeAlert == null) return const SizedBox.shrink();
+              final l10n = AppLocalizations.of(context);
+              final dist = (_displayLatitude != null && _displayLongitude != null)
+                  ? Geolocator.distanceBetween(
+                      _displayLatitude!,
+                      _displayLongitude!,
+                      activeAlert.latitude,
+                      activeAlert.longitude,
+                    ).round()
+                  : 300;
+
+              return Positioned(
+                bottom: 58,
+                left: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFF9800), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              dist <= activeAlert.radiusMeters + 80
+                                  ? l10n.proactiveRouteAlertInside
+                                  : l10n.proactiveRouteAlertApproaching(dist),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFBF360C),
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => ProactiveRouteAlertService().dismissActiveAlert(),
+                            child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF8D6E63)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${activeAlert.locationName} (${activeAlert.localizedCategoryLabel(l10n)})',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF5D4037),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              foregroundColor: const Color(0xFFE65100),
+                            ),
+                            onPressed: () {
+                              HotspotDetailsSheet.show(context, hotspot: activeAlert);
+                            },
+                            child: Text(
+                              l10n.viewDetails,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
 
           // Coordinates Badge Bottom-Center

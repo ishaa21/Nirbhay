@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/community_post_model.dart';
+import '../models/safety_hotspot_model.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
 
@@ -425,6 +426,174 @@ class CommunityService {
       }
     } catch (e) {
       return {'success': false, 'posts': <CommunityPost>[], 'message': 'Error: $e'};
+    }
+  }
+
+  // ── Safety Hotspots & Route Warnings ──────────────────────────────────────
+
+  /// Fetch active safety hotspots within a bounding box or radius.
+  Future<Map<String, dynamic>> getSafetyHotspots({
+    double? minLat,
+    double? minLng,
+    double? maxLat,
+    double? maxLng,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 10.0,
+    String? category,
+  }) async {
+    try {
+      final headers = await _headers();
+      final queryParams = <String, String>{};
+
+      if (minLat != null && minLng != null && maxLat != null && maxLng != null) {
+        queryParams['minLat'] = minLat.toString();
+        queryParams['minLng'] = minLng.toString();
+        queryParams['maxLat'] = maxLat.toString();
+        queryParams['maxLng'] = maxLng.toString();
+      } else if (latitude != null && longitude != null) {
+        queryParams['latitude'] = latitude.toString();
+        queryParams['longitude'] = longitude.toString();
+        queryParams['radiusKm'] = radiusKm.toString();
+      }
+
+      if (category != null && category.isNotEmpty && category != 'ALL') {
+        queryParams['category'] = category;
+      }
+
+      final response = await http
+          .get(_url('/safety-hotspots', queryParams), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to load safety hotspots.');
+      if (data['success'] == true && data['hotspots'] is List) {
+        final list = (data['hotspots'] as List)
+            .whereType<Map<String, dynamic>>()
+            .map((h) => SafetyHotspotModel.fromJSON(h))
+            .toList();
+
+        return {
+          'success': true,
+          'hotspots': list,
+          'count': list.length,
+          'disclaimer': data['disclaimer'],
+        };
+      }
+      return {
+        'success': false,
+        'hotspots': <SafetyHotspotModel>[],
+        'message': data['message'] ?? 'Failed to load hotspots.',
+      };
+    } catch (e) {
+      return {'success': false, 'hotspots': <SafetyHotspotModel>[], 'message': 'Error: $e'};
+    }
+  }
+
+  /// Fetch specific hotspot details including underlying reports and comments.
+  Future<Map<String, dynamic>> getHotspotDetails(String id) async {
+    try {
+      final headers = await _headers();
+      final response = await http
+          .get(_url('/safety-hotspots/$id'), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to load hotspot details.');
+      if (data['success'] == true && data['hotspot'] is Map<String, dynamic>) {
+        final hotspot = SafetyHotspotModel.fromJSON(data['hotspot'] as Map<String, dynamic>);
+        return {
+          'success': true,
+          'hotspot': hotspot,
+          'disclaimer': data['disclaimer'],
+        };
+      }
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to load hotspot details.',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  /// Submit community confirmation, resolution, or inaccuracy report for a hotspot.
+  Future<Map<String, dynamic>> submitHotspotFeedback(
+    String id, {
+    required String feedbackType,
+    String? postId,
+    String? comments,
+  }) async {
+    try {
+      final headers = await _headers(requireAuth: true);
+      if (!headers.containsKey('Authorization')) {
+        return {'success': false, 'message': 'Authentication required to submit feedback.'};
+      }
+
+      final body = <String, dynamic>{
+        'type': feedbackType,
+      };
+      if (postId != null) body['postId'] = postId;
+      if (comments != null && comments.isNotEmpty) body['comments'] = comments;
+
+      final response = await http
+          .post(_url('/safety-hotspots/$id/feedback'), headers: headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 15));
+
+      return _parseResponse(response, defaultErrorMessage: 'Failed to submit feedback.');
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  /// Evaluate user route waypoints and current position against upcoming safety hotspots.
+  Future<Map<String, dynamic>> checkRouteHotspots({
+    required double latitude,
+    required double longitude,
+    double? heading,
+    List<Map<String, double>>? waypoints,
+    int warningDistanceMeters = 600,
+  }) async {
+    try {
+      final headers = await _headers();
+      final body = <String, dynamic>{
+        'latitude': latitude,
+        'longitude': longitude,
+        'warningDistanceMeters': warningDistanceMeters,
+      };
+      if (heading != null) body['heading'] = heading;
+      if (waypoints != null) body['waypoints'] = waypoints;
+
+      final response = await http
+          .post(_url('/safety-hotspots/route-check'), headers: headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 15));
+
+      final data = _parseResponse(response, defaultErrorMessage: 'Failed to check route hotspots.');
+      if (data['success'] == true && data['upcomingHotspots'] is List) {
+        final list = (data['upcomingHotspots'] as List)
+            .whereType<Map<String, dynamic>>()
+            .map((h) => SafetyHotspotModel.fromJSON(h))
+            .toList();
+
+        return {
+          'success': true,
+          'hasUpcomingHotspots': list.isNotEmpty,
+          'upcomingHotspots': list,
+          'count': list.length,
+          'disclaimer': data['disclaimer'],
+        };
+      }
+      return {
+        'success': false,
+        'hasUpcomingHotspots': false,
+        'upcomingHotspots': <SafetyHotspotModel>[],
+        'message': data['message'] ?? 'Failed to check route.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'hasUpcomingHotspots': false,
+        'upcomingHotspots': <SafetyHotspotModel>[],
+        'message': 'Error: $e',
+      };
     }
   }
 }

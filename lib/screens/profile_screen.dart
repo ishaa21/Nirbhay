@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/shake_sos_service.dart';
+import '../services/proactive_route_alert_service.dart';
 import 'signin_screen.dart';
 import '../services/language_service.dart';
 import '../l10n/app_localizations.dart';
@@ -576,6 +577,10 @@ class _ProfileScreenState extends State<ProfileScreen>
         bool isShakeEnabled = false;
         String sensitivity = 'DEFAULT';
         bool isLoading = true;
+        bool isRouteAlertsEnabled = ProactiveRouteAlertService().isEnabled;
+        int routeAlertDistance = ProactiveRouteAlertService().warningDistanceMeters;
+        bool routeAlertVibrate = ProactiveRouteAlertService().vibrate;
+        bool routeAlertSound = ProactiveRouteAlertService().sound;
 
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
@@ -720,6 +725,136 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 ),
                               );
                             }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ── Proactive Route Safety Alerts Card ─────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.shield_outlined, color: _primary, size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    AppLocalizations.of(context).enableRouteAlerts,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: _onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    AppLocalizations.of(context).enableRouteAlertsDesc,
+                                    style: const TextStyle(fontSize: 12, color: _onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: isRouteAlertsEnabled,
+                              activeColor: _primary,
+                              onChanged: (val) async {
+                                await ProactiveRouteAlertService().setEnabled(val);
+                                setSheetState(() => isRouteAlertsEnabled = val);
+                              },
+                            ),
+                          ],
+                        ),
+                        if (isRouteAlertsEnabled) ...[
+                          const Divider(height: 20),
+                          Text(
+                            AppLocalizations.of(context).alertWarningDistance,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: _onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [300, 500, 800].map((dist) {
+                              final isSelected = routeAlertDistance == dist;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    '${dist}m',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isSelected ? Colors.white : _onSurfaceVariant,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                  selected: isSelected,
+                                  selectedColor: _primary,
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setSheetState(() => routeAlertDistance = dist);
+                                      ProactiveRouteAlertService().setWarningDistance(dist);
+                                    }
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              // Vibration Toggle
+                              Expanded(
+                                child: CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  title: Text(
+                                    AppLocalizations.of(context).alertVibrate,
+                                    style: const TextStyle(fontSize: 13, color: _onSurface),
+                                  ),
+                                  value: routeAlertVibrate,
+                                  activeColor: _primary,
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  onChanged: (val) {
+                                    final v = val ?? true;
+                                    setSheetState(() => routeAlertVibrate = v);
+                                    ProactiveRouteAlertService().setVibrate(v);
+                                  },
+                                ),
+                              ),
+                              // Sound Toggle
+                              Expanded(
+                                child: CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  title: Text(
+                                    AppLocalizations.of(context).alertSound,
+                                    style: const TextStyle(fontSize: 13, color: _onSurface),
+                                  ),
+                                  value: routeAlertSound,
+                                  activeColor: _primary,
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  onChanged: (val) {
+                                    final s = val ?? true;
+                                    setSheetState(() => routeAlertSound = s);
+                                    ProactiveRouteAlertService().setSound(s);
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ],
