@@ -11,6 +11,7 @@ import 'auth_service.dart';
 import 'contact_service.dart';
 import 'location_update_service.dart';
 import 'sos_sms_dispatcher.dart';
+import 'language_service.dart';
 
 /// Encapsulates the location fix for an emergency SOS.
 class SosLocationResult {
@@ -170,31 +171,17 @@ class SosService {
     required DateTime activatedAt,
     SosLocationResult? location,
     String? trackingUrl,
+    String? langCode,
   }) {
-    final timeStr = activatedAt.toLocal().toString().split('.')[0];
-    String locationStr;
-    if (location != null && location.hasCoordinates) {
-      final lat = location.latitude!;
-      final lng = location.longitude!;
-      final latStr = lat.toStringAsFixed(4);
-      final lngStr = lng.toStringAsFixed(4);
-      final mapsUrl = 'https://maps.google.com/?q=$lat,$lng';
-      if (location.isLastKnown) {
-        final locTime = location.formattedTimestamp;
-        final timeSuffix = locTime != null ? ' as of $locTime' : '';
-        locationStr = 'Location: $mapsUrl ($latStr, $lngStr) [LAST KNOWN LOCATION$timeSuffix]';
-      } else {
-        locationStr = 'Location: $mapsUrl ($latStr, $lngStr)';
-      }
-    } else {
-      locationStr = 'Location: Unavailable';
-    }
-
-    final trackingStr = (trackingUrl != null && trackingUrl.isNotEmpty)
-        ? ' Live Tracking: $trackingUrl'
-        : '';
-
-    return 'EMERGENCY ALERT: Nirbhay SOS activated at $timeStr. $locationStr.$trackingStr Please check immediately.';
+    return LanguageService().buildLocalizedSosAlertMessage(
+      activatedAt: activatedAt,
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      isLastKnown: location?.isLastKnown ?? false,
+      locationTimestamp: location?.timestamp,
+      trackingUrl: trackingUrl,
+      targetLanguageCode: langCode,
+    );
   }
 
   /// Create / Activate an SOS incident.
@@ -516,8 +503,7 @@ class SosService {
     LocationUpdateService().stop();
 
     final isOfflineIncident = incidentId.startsWith('offline_');
-    const resolveMsg =
-        'STATUS UPDATE: Nirbhay SOS emergency alert has been RESOLVED. User is SAFE now. No further action is required.';
+    final resolveMsg = LanguageService().buildLocalizedSosResolvedMessage();
 
     if (isOfflineIncident) {
       final contacts = await EmergencyContactService().getLocalContacts();

@@ -3,6 +3,9 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/shake_sos_service.dart';
 import 'signin_screen.dart';
+import '../services/language_service.dart';
+import '../l10n/app_localizations.dart';
+import 'language_selection_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -363,6 +366,19 @@ class _ProfileScreenState extends State<ProfileScreen>
             borderRadius: BorderRadius.circular(16),
             child: Column(
               children: [
+                _buildMenuItemTile(
+                  icon: Icons.language_rounded,
+                  title: '${AppLocalizations.of(context).language} / भाषा / ભાષા',
+                  trailingText: LanguageService().currentLanguage.nativeName,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LanguageSelectionScreen(),
+                      ),
+                    );
+                  },
+                  showDivider: true,
+                ),
                 _buildMenuItemTile(
                   icon: Icons.palette_outlined,
                   title: 'App Theme',

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
+import '../l10n/app_localizations.dart';
+import '../services/language_service.dart';
+import 'language_selection_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -176,6 +179,31 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
             ),
 
+            // Language Selector Pill
+            Positioned(
+              top: 8,
+              right: 12,
+              child: SafeArea(
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF301427),
+                    backgroundColor: Colors.white.withOpacity(0.9),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: const BorderSide(color: Color(0x33301427)),
+                    ),
+                  ),
+                  onPressed: () => LanguageSelectionScreen.show(context),
+                  icon: const Icon(Icons.language_rounded, size: 18),
+                  label: Text(
+                    LanguageService().currentLanguage.nativeName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+            ),
+
             // 2. Main content scroll area
             SafeArea(
               child: Center(
@@ -247,9 +275,9 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Welcome Back',
-          style: TextStyle(
+        Text(
+          AppLocalizations.of(context).welcomeBack,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Color(0xFF301427), // primary
@@ -291,8 +319,8 @@ class _SignInScreenState extends State<SignInScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Email Address Input
-            const Text(
-              'Email Address',
+            Text(
+              AppLocalizations.of(context).emailAddress,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -322,8 +350,8 @@ class _SignInScreenState extends State<SignInScreen> {
             const SizedBox(height: 12),
 
             // Password Input
-            const Text(
-              'Password',
+            Text(
+              AppLocalizations.of(context).password,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -386,9 +414,9 @@ class _SignInScreenState extends State<SignInScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Sign In',
-                        style: TextStyle(
+                    : Text(
+                        AppLocalizations.of(context).signIn,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
@@ -525,9 +553,9 @@ class _SignInScreenState extends State<SignInScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          "Don't have an account? ",
-          style: TextStyle(
+        Text(
+          '${AppLocalizations.of(context).donNotHaveAccount} ',
+          style: const TextStyle(
             fontSize: 13.5,
             color: Color(0xFF4E4449),
           ),
@@ -544,8 +572,8 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
             );
           },
-          child: const Text(
-            'Sign Up',
+          child: Text(
+            AppLocalizations.of(context).signUp,
             style: TextStyle(
               fontSize: 13.5,
               color: Color(0xFF301427),

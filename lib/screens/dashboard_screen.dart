@@ -18,6 +18,8 @@ import 'fake_call_screen.dart';
 import 'live_tracking_screen.dart';
 import 'helplines_screen.dart';
 import 'safety_tips_screen.dart';
+import '../l10n/app_localizations.dart';
+import 'language_selection_screen.dart';
 import '../models/safety_timer_model.dart';
 import '../services/safety_timer_service.dart';
 import '../services/shake_sos_service.dart';
@@ -409,19 +411,33 @@ class _DashboardScreenState extends State<DashboardScreen>
               color: Color(0xFF1B1B1C),
             ),
           ),
-          // Notification bell
-          Stack(
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                onPressed: () {},
+                tooltip: 'Language',
+                onPressed: () => LanguageSelectionScreen.show(context),
                 icon: const Icon(
-                  Icons.notifications_outlined,
-                  size: 24,
+                  Icons.translate_rounded,
+                  size: 22,
                   color: Color(0xFF1B1B1C),
                 ),
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.only(right: 12),
                 constraints: const BoxConstraints(),
               ),
+              // Notification bell
+              Stack(
+                children: [
+                  IconButton(
+                    onPressed: () {},
+                    icon: const Icon(
+                      Icons.notifications_outlined,
+                      size: 24,
+                      color: Color(0xFF1B1B1C),
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
               Positioned(
                 top: 2,
                 right: 2,
@@ -436,6 +452,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ],
           ),
+            ],
+          ),
         ],
       ),
     );
@@ -445,13 +463,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   //  Greeting
   // ─────────────────────────────────────────────────────────────────
   Widget _buildGreeting() {
-    final name = _currentUser?.fullName.split(' ').first ?? 'User';
+    final l10n = AppLocalizations.of(context);
+    final name = _currentUser?.fullName.split(' ').first ?? l10n.defaultUser;
     final hour = DateTime.now().hour;
     final greeting = hour < 12
-        ? 'Good morning'
+        ? l10n.goodMorning
         : hour < 17
-            ? 'Good afternoon'
-            : 'Good evening';
+            ? l10n.goodAfternoon
+            : l10n.goodEvening;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -879,10 +898,29 @@ class _DashboardScreenState extends State<DashboardScreen>
       itemBuilder: (context, index) {
         final f = _features[index];
         final route = f['route'] as String?;
+        final l10n = AppLocalizations.of(context);
+        String title = f['title'] as String;
+        String subtitle = f['subtitle'] as String;
+        if (route == 'safety_timer') {
+          title = l10n.safetyTimer;
+          subtitle = l10n.safetyTimerSubtitle;
+        } else if (route == 'live_tracking') {
+          title = l10n.liveJourney;
+          subtitle = l10n.liveJourneySubtitle;
+        } else if (route == 'fake_call') {
+          title = l10n.fakeCall;
+          subtitle = l10n.fakeCallSubtitle;
+        } else if (route == 'helplines') {
+          title = l10n.emergencyHelplines;
+          subtitle = l10n.translate('localEmergencyContacts');
+        } else if (route == 'safety_tips') {
+          title = l10n.translate('safetyTips');
+          subtitle = l10n.translate('safetyTipsSubtitle');
+        }
         return _SafetyCard(
           icon: f['icon'] as IconData,
-          title: f['title'] as String,
-          subtitle: f['subtitle'] as String,
+          title: title,
+          subtitle: subtitle,
           onTap: route == null
               ? null
               : () {

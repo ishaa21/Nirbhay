@@ -9,7 +9,7 @@ const getProfile = async (req, res) => {
     const userId = req.userId;
 
     const userResult = await db.query(
-      'SELECT id, full_name, email, phone, created_at, updated_at FROM users WHERE id = $1',
+      'SELECT id, full_name, email, phone, preferred_language, created_at, updated_at FROM users WHERE id = $1',
       [userId]
     );
 
@@ -28,6 +28,8 @@ const getProfile = async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         phone: user.phone,
+        preferredLanguage: user.preferred_language || 'en',
+        preferred_language: user.preferred_language || 'en',
         createdAt: user.created_at,
         created_at: user.created_at,
         updatedAt: user.updated_at,
@@ -93,13 +95,16 @@ const updateProfile = async (req, res) => {
       }
     }
 
+    const targetLang = req.body.preferredLanguage !== undefined ? req.body.preferredLanguage : req.body.preferred_language;
+    const newLang = (targetLang && ['en', 'hi', 'gu'].includes(targetLang.trim())) ? targetLang.trim() : currentProfile.preferred_language || 'en';
+
     // Execute update
     const updateResult = await db.query(
       `UPDATE users
-       SET full_name = $1, email = $2, phone = $3, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING id, full_name, email, phone, created_at, updated_at`,
-      [newFullName, newEmail, newPhone, userId]
+       SET full_name = $1, email = $2, phone = $3, preferred_language = $4, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5
+       RETURNING id, full_name, email, phone, preferred_language, created_at, updated_at`,
+      [newFullName, newEmail, newPhone, newLang, userId]
     );
 
     const updatedUser = updateResult.rows[0];
@@ -112,6 +117,8 @@ const updateProfile = async (req, res) => {
         full_name: updatedUser.full_name,
         email: updatedUser.email,
         phone: updatedUser.phone,
+        preferredLanguage: updatedUser.preferred_language || 'en',
+        preferred_language: updatedUser.preferred_language || 'en',
         createdAt: updatedUser.created_at,
         created_at: updatedUser.created_at,
         updatedAt: updatedUser.updated_at,

@@ -6,53 +6,87 @@ const { prepareDeviceSosAlerts } = require('./deviceSmsDispatch');
 /**
  * Format SMS alert body with timestamp, Google Maps location link, and live tracking URL
  */
-function buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl }) {
+function buildAlertMessage({ activatedAt, latitude, longitude, trackingUrl, lang = 'en' }) {
   const timeStr = new Date(activatedAt || Date.now()).toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     dateStyle: 'medium',
     timeStyle: 'medium',
   });
 
+  const hasCoords = latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined;
+  const latNum = hasCoords ? parseFloat(latitude) : NaN;
+  const lngNum = hasCoords ? parseFloat(longitude) : NaN;
+  const validCoords = !isNaN(latNum) && !isNaN(lngNum);
+
+  if (lang === 'hi') {
+    const locPart = validCoords
+      ? `स्थान: https://maps.google.com/?q=${latNum},${lngNum} (${latNum.toFixed(4)}, ${lngNum.toFixed(4)})`
+      : 'स्थान: अनुपलब्ध';
+    const trackPart = trackingUrl ? ` लाइव ट्रैकिंग: ${trackingUrl}` : '';
+    return `आपातकालीन सूचना: निर्भय SOS ${timeStr} पर सक्रिय हुआ। ${locPart}.${trackPart} कृपया तुरंत सहायता करें।`;
+  }
+
+  if (lang === 'gu') {
+    const locPart = validCoords
+      ? `સ્થળ: https://maps.google.com/?q=${latNum},${lngNum} (${latNum.toFixed(4)}, ${lngNum.toFixed(4)})`
+      : 'સ્થળ: અપ્રાપ્ય';
+    const trackPart = trackingUrl ? ` લાઇવ ટ્રેકિંગ: ${trackingUrl}` : '';
+    return `કટોકટી ચેતવણી: નિર્ભય SOS ${timeStr} વાગ્યે સક્રિય થયું. ${locPart}.${trackPart} કૃપા કરીને તાત્કાલિક મદદ કરો.`;
+  }
+
   let locationStr = 'Location: Unavailable';
-  if (latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined) {
-    const latNum = parseFloat(latitude);
-    const lngNum = parseFloat(longitude);
-    if (!isNaN(latNum) && !isNaN(lngNum)) {
-      locationStr = `Location: https://maps.google.com/?q=${latNum},${lngNum} (${latNum.toFixed(4)}, ${lngNum.toFixed(4)})`;
-    }
+  if (validCoords) {
+    locationStr = `Location: https://maps.google.com/?q=${latNum},${lngNum} (${latNum.toFixed(4)}, ${lngNum.toFixed(4)})`;
   }
-
-  let trackingStr = '';
-  if (trackingUrl) {
-    trackingStr = ` Live Tracking: ${trackingUrl}`;
-  }
-
+  const trackingStr = trackingUrl ? ` Live Tracking: ${trackingUrl}` : '';
   return `EMERGENCY ALERT: Nirbhay SOS activated at ${timeStr}. ${locationStr}.${trackingStr} Please check immediately.`;
 }
 
-function buildJourneyStartedMessage({ userName, trackingUrl, destination, startedAt }) {
+function buildJourneyStartedMessage({ userName, trackingUrl, destination, startedAt, lang = 'en' }) {
   const timeStr = new Date(startedAt || Date.now()).toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     dateStyle: 'medium',
     timeStyle: 'medium',
   });
   const name = userName ? userName.trim() : 'User';
+
+  if (lang === 'hi') {
+    const destPart = destination ? ` गंतव्य: ${destination}।` : '';
+    const trackPart = trackingUrl ? ` लाइव ट्रैकिंग: ${trackingUrl}` : '';
+    return `यात्रा सूचना: ${name} ने निर्भय पर ${timeStr} पर यात्रा शुरू की।${destPart}${trackPart}`;
+  }
+
+  if (lang === 'gu') {
+    const destPart = destination ? ` ગંતવ્ય: ${destination}.` : '';
+    const trackPart = trackingUrl ? ` લાઇવ ટ્રેકિંગ: ${trackingUrl}` : '';
+    return `મુસાફરી સૂચના: ${name} એ નિર્ભય પર ${timeStr} વાગ્યે મુસાફરી શરૂ કરી.${destPart}${trackPart}`;
+  }
+
   const destPart = destination ? ` Heading to: ${destination}.` : '';
   const trackPart = trackingUrl ? ` Live Journey: ${trackingUrl}` : '';
   return `JOURNEY ALERT: ${name} started a live journey on Nirbhay at ${timeStr}.${destPart}${trackPart} You can follow their location on the link.`;
 }
 
-function buildJourneyEndedMessage({ userName, resolvedAt }) {
+function buildJourneyEndedMessage({ userName, resolvedAt, lang = 'en' }) {
   const timeStr = new Date(resolvedAt || Date.now()).toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     dateStyle: 'medium',
     timeStyle: 'medium',
   });
   const name = userName ? userName.trim() : 'The user';
+
+  if (lang === 'hi') {
+    return `यात्रा अपडेट: ${name} सुरक्षित पहुंच गए हैं और ${timeStr} पर निर्भय यात्रा समाप्त की।`;
+  }
+
+  if (lang === 'gu') {
+    return `મુસાફરી અપડેટ: ${name} સુરક્ષિત પહોંચી ગયા છે અને ${timeStr} વાગ્યે મુસાફરી પૂર્ણ કરી.`;
+  }
+
   return `JOURNEY UPDATE: ${name} has arrived safely and ended their Nirbhay live journey at ${timeStr}. No further action needed.`;
 }
 
-function buildJourneyDeviationMessage({ userName, latitude, longitude, trackingUrl, distanceMeters }) {
+function buildJourneyDeviationMessage({ userName, latitude, longitude, trackingUrl, distanceMeters, lang = 'en' }) {
   const name = userName ? userName.trim() : 'User';
   let locationStr = 'Location: Unavailable';
   if (latitude != null && longitude != null) {
@@ -62,6 +96,19 @@ function buildJourneyDeviationMessage({ userName, latitude, longitude, trackingU
       locationStr = `Location: https://maps.google.com/?q=${latNum},${lngNum}`;
     }
   }
+
+  if (lang === 'hi') {
+    const distPart = distanceMeters != null ? ` मार्ग विचलन ~${Math.round(distanceMeters)}m।` : '';
+    const trackPart = trackingUrl ? ` लाइव यात्रा: ${trackingUrl}` : '';
+    return `मार्ग चेतावनी: ${name} निर्भय पर अपने नियोजित मार्ग से भटक गए हो सकते हैं।${distPart} ${locationStr}.${trackPart} कृपया संपर्क करें।`;
+  }
+
+  if (lang === 'gu') {
+    const distPart = distanceMeters != null ? ` રૂટ વિચલન ~${Math.round(distanceMeters)}m.` : '';
+    const trackPart = trackingUrl ? ` લાઇવ મુસાફરી: ${trackingUrl}` : '';
+    return `રૂટ ચેતવણી: ${name} નિર્ભય પર તેમના આયોજિત રૂટથી ભટકી ગયા હોઈ શકે છે.${distPart} ${locationStr}.${trackPart} કૃપા કરીને સંપર્ક કરો.`;
+  }
+
   const distPart = distanceMeters != null ? ` Route drift ~${Math.round(distanceMeters)}m.` : '';
   const trackPart = trackingUrl ? ` Live Journey: ${trackingUrl}` : '';
   return `ROUTE ALERT: ${name} may have deviated from their planned route on Nirbhay.${distPart} ${locationStr}.${trackPart} Please check on them.`;

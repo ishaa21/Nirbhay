@@ -147,6 +147,7 @@ class AuthService {
     String? fullName,
     String? email,
     String? phone,
+    String? preferredLanguage,
   }) async {
     final token = await getToken();
     if (token == null) {
@@ -155,17 +156,22 @@ class AuthService {
 
     try {
       final url = Uri.parse('${ApiConfig.baseUrl}/users/me');
+      final Map<String, dynamic> bodyMap = {};
+      if (fullName != null) bodyMap['fullName'] = fullName;
+      if (email != null) bodyMap['email'] = email;
+      if (phone != null) bodyMap['phone'] = phone;
+      if (preferredLanguage != null) {
+        bodyMap['preferredLanguage'] = preferredLanguage;
+        bodyMap['preferred_language'] = preferredLanguage;
+      }
+
       final response = await http.put(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'fullName': ?fullName,
-          'email': ?email,
-          'phone': ?phone,
-        }),
+        body: jsonEncode(bodyMap),
       );
 
       final data = jsonDecode(response.body);
