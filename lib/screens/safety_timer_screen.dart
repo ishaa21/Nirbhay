@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/safety_timer_model.dart';
 import '../services/safety_timer_service.dart';
 import 'signin_screen.dart';
+import '../l10n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SafetyTimerScreen
@@ -636,13 +637,13 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
           ],
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Safety Timer',
+        Text(
+          AppLocalizations.of(context).translate('safetyTimerHeading'),
           style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: _primary, height: 1.2),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Auto-alerts your emergency contacts if you don\'t check in before time runs out.',
+        Text(
+          AppLocalizations.of(context).translate('safetyTimerSubtitle'),
           style: TextStyle(fontSize: 14, color: _onSurfaceVariant, height: 1.4),
         ),
       ],
@@ -684,7 +685,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 child: ElevatedButton.icon(
                   onPressed: _processing ? null : _handleCheckIn,
                   icon: const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-                  label: const Text('I\'M SAFE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: Text(AppLocalizations.of(context).translate('checkIn'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _successColor,
                     padding: const EdgeInsets.symmetric(vertical: 10),
@@ -697,7 +698,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 child: OutlinedButton.icon(
                   onPressed: _processing ? null : _showExtendSheet,
                   icon: const Icon(Icons.add_alarm, color: _primary, size: 18),
-                  label: const Text('EXTEND', style: TextStyle(color: _primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: Text(AppLocalizations.of(context).translate('extendTimer'), style: const TextStyle(color: _primary, fontWeight: FontWeight.bold, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _primary,
                     side: const BorderSide(color: _primary),
@@ -794,8 +795,8 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Select Duration',
+        Text(
+          AppLocalizations.of(context).translate('selectDuration'),
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _primary),
         ),
         const SizedBox(height: 12),
@@ -851,7 +852,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
             : const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 26),
         label: Text(
-          _processing ? 'Starting…' : 'Start Timer',
+          _processing ? AppLocalizations.of(context).translate('startingTimer') : AppLocalizations.of(context).translate('startTimerButton'),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
         ),
         style: ElevatedButton.styleFrom(
@@ -893,8 +894,8 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
               child: const Icon(Icons.tune_rounded, color: _primary, size: 22),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Custom Duration',
+            Text(
+              AppLocalizations.of(context).translate('customDuration'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
             ),
           ],
@@ -991,7 +992,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(),
             style: TextButton.styleFrom(foregroundColor: _onSurfaceVariant),
-            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(AppLocalizations.of(context).cancel, style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             key: const Key('custom_timer_set_button'),
@@ -1024,7 +1025,7 @@ class _SafetyTimerScreenState extends State<SafetyTimerScreen>
                 );
               }
             },
-            child: const Text('Set Duration', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            child: Text(AppLocalizations.of(context).translate('setDurationButton'), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ],
       ),

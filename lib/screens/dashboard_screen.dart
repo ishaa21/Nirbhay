@@ -303,8 +303,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               children: [
                 Row(
                   children: [
-                    const Text(
-                      'Shake-to-SOS',
+                    Text(
+                      AppLocalizations.of(context).shakeToSos,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -331,8 +331,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ],
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  '15-sec countdown on shake, even in background',
+                Text(
+                  AppLocalizations.of(context).translate('shakeSosDescription'),
                   style: TextStyle(fontSize: 11, color: _textSecondary),
                 ),
               ],
@@ -599,8 +599,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'ACTIVATING',
+                  Text(
+                    AppLocalizations.of(context).translate('triggeringSos').toUpperCase(),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -620,7 +620,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _activeSosIncident != null ? 'Tap for Options' : 'Tap to Alert',
+                    _activeSosIncident != null ? AppLocalizations.of(context).viewDetails : AppLocalizations.of(context).tapForSos,
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFFBBAFB5),
@@ -1409,13 +1409,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 28),
 
           // Safety Suite
-          _buildSectionLabel('SAFETY SUITE'),
+          _buildSectionLabel(AppLocalizations.of(context).translate('quickActions')),
           const SizedBox(height: 12),
           _buildSafetyGrid(),
           const SizedBox(height: 32),
 
           // Currently Safe Area
-          _buildSectionLabel('CURRENTLY SAFE AREA'),
+          _buildSectionLabel(AppLocalizations.of(context).translate('shieldActive').toUpperCase()),
           const SizedBox(height: 12),
           _buildMapCard(),
           const SizedBox(height: 90), // Generous padding for floating nav bar

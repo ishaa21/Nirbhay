@@ -6,6 +6,7 @@ import '../services/sos_service.dart';
 import '../services/location_update_service.dart';
 import '../services/fake_call_audio_service.dart';
 import '../services/fake_call_service.dart';
+import '../l10n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CallerAvatarPreset
@@ -519,13 +520,13 @@ class FakeCallScreenState extends State<FakeCallScreen>
           ],
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Fake Call Simulator',
+        Text(
+          AppLocalizations.of(context).translate('fakeCallHeading'),
           style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: _primary, height: 1.2),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Simulate a realistic incoming call to discreetly exit unsafe or uncomfortable situations.',
+        Text(
+          AppLocalizations.of(context).translate('fakeCallSubtitle'),
           style: TextStyle(fontSize: 14, color: _onSurfaceVariant, height: 1.4),
         ),
       ],
@@ -597,7 +598,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('1. Caller Identity & Avatar', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+          Text(AppLocalizations.of(context).translate('callerPresets'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
           const SizedBox(height: 12),
 
           // Preset Avatars
@@ -693,7 +694,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('2. Ring Delay', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+          Text(AppLocalizations.of(context).translate('triggerDelay'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -761,7 +762,7 @@ class FakeCallScreenState extends State<FakeCallScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('3. Ringtone & Audio', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
+              Text(AppLocalizations.of(context).translate('ringtoneAndAudio'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _primary)),
               TextButton.icon(
                 onPressed: isArmed
                     ? null

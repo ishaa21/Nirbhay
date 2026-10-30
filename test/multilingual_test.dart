@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nirbhay/l10n/app_localizations.dart';
 import 'package:nirbhay/models/app_language.dart';
@@ -7,6 +8,7 @@ import 'package:nirbhay/services/language_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   group('AppLanguage Model Tests', () {
     test('contains English, Hindi, and Gujarati', () {
@@ -259,7 +261,8 @@ void main() {
 
       // Switch to Hindi reactively
       await languageService.setLanguage('hi');
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       // Verify immediate update to Hindi without restart
       expect(find.text('निर्भय'), findsOneWidget);
@@ -269,7 +272,8 @@ void main() {
 
       // Switch to Gujarati reactively
       await languageService.setLanguage('gu');
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       // Verify immediate update to Gujarati without restart
       expect(find.text('નિર્ભય'), findsOneWidget);

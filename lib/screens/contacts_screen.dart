@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/emergency_contact_model.dart';
 import '../services/contact_service.dart';
+import '../l10n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────
 //  Emergency Contacts Screen (Connected to Backend)
@@ -292,7 +293,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ElevatedButton.icon(
             onPressed: _loadContacts,
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Retry'),
+            label: Text(AppLocalizations.of(context).retry),
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
               foregroundColor: Colors.white,

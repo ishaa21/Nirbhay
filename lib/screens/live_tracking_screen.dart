@@ -11,6 +11,7 @@ import '../services/journey_service.dart';
 import '../services/api_config.dart';
 import '../models/sos_model.dart';
 import '../models/journey_model.dart';
+import '../l10n/app_localizations.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
 
@@ -977,7 +978,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 ),
                 onPressed: _shareTrackingLink,
                 icon: const Icon(Icons.share, size: 18),
-                label: const Text('Share Live Link', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                label: Text(AppLocalizations.of(context).translate('shareLiveLink'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(width: 12),
@@ -1003,7 +1004,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   size: 18,
                 ),
                 label: Text(
-                  hasActiveSos ? 'Resolve (Safe)' : (hasActiveJourney ? 'End Journey' : 'No Journey'),
+                  hasActiveSos ? AppLocalizations.of(context).translate('checkIn') : (hasActiveJourney ? AppLocalizations.of(context).translate('endJourneyButton') : 'No Journey'),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -1032,7 +1033,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     )
                   : const Icon(Icons.play_circle_outline, size: 18),
               label: Text(
-                _isStartingJourney ? 'Starting...' : 'Start Journey & Share',
+                _isStartingJourney ? AppLocalizations.of(context).translate('startingTimer') : AppLocalizations.of(context).translate('startJourneyButton'),
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/community_post_model.dart';
 import '../services/community_service.dart';
+import '../l10n/app_localizations.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -345,7 +346,7 @@ class _CommunityScreenState extends State<CommunityScreen>
         backgroundColor: _primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.campaign_outlined),
-        label: const Text('Post Report', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(AppLocalizations.of(context).translate('createReport'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -358,9 +359,9 @@ class _CommunityScreenState extends State<CommunityScreen>
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
-              'Community Hub',
+              AppLocalizations.of(context).translate('communityHubHeading'),
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
@@ -370,7 +371,7 @@ class _CommunityScreenState extends State<CommunityScreen>
             ),
             SizedBox(height: 4),
             Text(
-              'Neighborhood safety alerts & verified updates',
+              AppLocalizations.of(context).translate('communitySubtitle'),
               style: TextStyle(fontSize: 13, color: _onSurfaceVariant),
             ),
           ],
@@ -423,9 +424,9 @@ class _CommunityScreenState extends State<CommunityScreen>
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'Report a Safety Concern',
+                        AppLocalizations.of(context).translate('reportSafetyConcern'),
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -434,7 +435,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Alert people nearby about harassment, hazards, or unsafe spots.',
+                        AppLocalizations.of(context).translate('reportSafetyConcernSub'),
                         style: TextStyle(fontSize: 11, color: Color(0xFFE2D0DC)),
                       ),
                     ],
@@ -478,7 +479,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  'Community Alerts',
+                  AppLocalizations.of(context).translate('communityAlerts'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -508,7 +509,7 @@ class _CommunityScreenState extends State<CommunityScreen>
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  'My Reports',
+                  AppLocalizations.of(context).translate('myReports'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,

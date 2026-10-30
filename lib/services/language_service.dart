@@ -166,8 +166,6 @@ class LanguageService {
     final lang = (targetLanguageCode ?? _currentLanguageCode).toLowerCase();
     String locPart = '';
     if (latitude != null && longitude != null) {
-      final latStr = latitude.toStringAsFixed(4);
-      final lngStr = longitude.toStringAsFixed(4);
       locPart = ' https://maps.google.com/?q=$latitude,$longitude';
     }
 

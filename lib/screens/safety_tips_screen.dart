@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 class SafetyTipsScreen extends StatefulWidget {
   const SafetyTipsScreen({super.key});
@@ -28,8 +29,8 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Nirbhay',
               style: TextStyle(
                 fontSize: 16,
@@ -38,7 +39,7 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
               ),
             ),
             Text(
-              'Safety Tips & Awareness',
+              AppLocalizations.of(context).translate('safetyTips'),
               style: TextStyle(
                 fontSize: 12,
                 color: _onSurfaceVariant,
@@ -86,8 +87,8 @@ class _SafetyTipsScreenState extends State<SafetyTipsScreen> {
               const SizedBox(height: 16),
 
               // Categories
-              const Text(
-                'Safety Guides',
+              Text(
+                AppLocalizations.of(context).translate('safetyTips'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primary),
               ),
               const SizedBox(height: 12),

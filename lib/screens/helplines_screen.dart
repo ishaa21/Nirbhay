@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/app_localizations.dart';
 
 class HelplinesScreen extends StatefulWidget {
   const HelplinesScreen({super.key});
@@ -71,8 +72,8 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Nirbhay',
               style: TextStyle(
                 fontSize: 16,
@@ -81,7 +82,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
               ),
             ),
             Text(
-              'Helplines & Emergency Contacts',
+              AppLocalizations.of(context).translate('helplinesHeading'),
               style: TextStyle(
                 fontSize: 12,
                 color: _onSurfaceVariant,
@@ -348,8 +349,8 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
+                        children: [
+                          const Text(
                             'APEX NATIONAL LIFELINE',
                             style: TextStyle(
                               fontSize: 10,
@@ -359,7 +360,7 @@ class _HelplinesScreenState extends State<HelplinesScreen> {
                             ),
                           ),
                           Text(
-                            '112 National Emergency',
+                            AppLocalizations.of(context).translate('national112'),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,

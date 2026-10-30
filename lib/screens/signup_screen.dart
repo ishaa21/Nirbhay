@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'signin_screen.dart';
+import '../l10n/app_localizations.dart';
+import '../services/language_service.dart';
+import 'language_selection_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -194,6 +197,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
 
             // 2. Main content scroll area
+            // Language Selector Pill
+            Positioned(
+              top: 8,
+              right: 12,
+              child: SafeArea(
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF301427),
+                    backgroundColor: Colors.white.withOpacity(0.9),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: const BorderSide(color: Color(0x33301427)),
+                    ),
+                  ),
+                  onPressed: () => LanguageSelectionScreen.show(context),
+                  icon: const Icon(Icons.language_rounded, size: 18),
+                  label: Text(
+                    LanguageService().currentLanguage.nativeName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+            ),
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -264,8 +291,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
         const SizedBox(height: 10), // Reduced gap
-        const Text(
-          'Join Nirbhay',
+        Text(
+          AppLocalizations.of(context).translate('signUpTitle'),
           style: TextStyle(
             fontSize: 24, // Slightly smaller and cleaner
             fontWeight: FontWeight.bold,
@@ -308,8 +335,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Full Name Input
-            const Text(
-              'Full Name',
+            Text(
+              AppLocalizations.of(context).fullName,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -339,8 +366,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             const SizedBox(height: 10), // Reduced field spacing
 
             // Email Address Input
-            const Text(
-              'Email Address',
+            Text(
+              AppLocalizations.of(context).emailAddress,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -374,8 +401,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             const SizedBox(height: 10),
 
             // Phone Number Input
-            const Text(
-              'Phone Number',
+            Text(
+              AppLocalizations.of(context).phoneNumber,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -405,8 +432,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
             const SizedBox(height: 10),
 
             // Password Input
-            const Text(
-              'Password',
+            Text(
+              AppLocalizations.of(context).password,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -525,8 +552,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Create Account',
+                    : Text(
+                        AppLocalizations.of(context).createAccount,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -664,8 +691,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          'Already have an account? ',
+        Text(
+          '${AppLocalizations.of(context).alreadyHaveAccount} ',
           style: TextStyle(
             fontSize: 13.5,
             color: Color(0xFF4E4449),
@@ -683,8 +710,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             );
           },
-          child: const Text(
-            'Sign In',
+          child: Text(
+            AppLocalizations.of(context).signIn,
             style: TextStyle(
               fontSize: 13.5,
               color: Color(0xFF301427),

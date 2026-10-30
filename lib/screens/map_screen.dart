@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import '../l10n/app_localizations.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -673,8 +674,8 @@ class _MapScreenState extends State<MapScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Nearby Safe Zones',
+                  Text(
+                    AppLocalizations.of(context).translate('nearbyServices'),
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -832,6 +833,24 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   /// Horizontal category filter chips
+  String _getLocalizedCategoryLabel(BuildContext context, String key) {
+    final l10n = AppLocalizations.of(context);
+    switch (key) {
+      case 'all':
+        return l10n.translate('allServices');
+      case 'police':
+        return l10n.translate('police');
+      case 'hospital':
+        return l10n.translate('hospital');
+      case 'pharmacy':
+        return l10n.translate('pharmacy');
+      case 'fire_station':
+        return l10n.translate('fireStation');
+      default:
+        return _getCategoryLabel(key);
+    }
+  }
+
   Widget _buildCategoryChips() {
     return SizedBox(
       height: 38,
@@ -868,7 +887,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    cat['label'] as String,
+                    _getLocalizedCategoryLabel(context, cat['key'] as String),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1199,7 +1218,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     onPressed: () => _openDirections(place),
                     icon: const Icon(Icons.directions_rounded, size: 15),
-                    label: const Text('Directions', style: TextStyle(fontSize: 12)),
+                    label: Text(AppLocalizations.of(context).translate('directions'), style: const TextStyle(fontSize: 12)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1214,8 +1233,8 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     onPressed: () => _callPlace(place.phone!),
                     icon: const Icon(Icons.call_rounded, size: 15),
-                    label: const Text(
-                      'Call',
+                    label: Text(
+                      AppLocalizations.of(context).translate('call'),
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   )

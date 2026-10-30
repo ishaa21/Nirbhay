@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/shake_sos_service.dart';
+import '../l10n/app_localizations.dart';
 
 /// Full-screen emergency countdown overlay shown when a phone shake is detected.
 ///
@@ -168,11 +169,11 @@ class _ShakeCountdownDialogState extends State<ShakeCountdownDialog>
               // Warning Icon & Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.warning_amber_rounded, color: Color(0xFFFF5252), size: 28),
-                  SizedBox(width: 8),
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF5252), size: 28),
+                  const SizedBox(width: 8),
                   Text(
-                    'SHAKE DETECTED',
+                    AppLocalizations.of(context).shakePhoneDetected,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -183,8 +184,8 @@ class _ShakeCountdownDialogState extends State<ShakeCountdownDialog>
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Emergency SOS will automatically activate if not cancelled.',
+              Text(
+                AppLocalizations.of(context).shakeCountdownMessage,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Color(0xFFD1C3C9), fontSize: 13),
               ),
@@ -253,7 +254,7 @@ class _ShakeCountdownDialogState extends State<ShakeCountdownDialog>
                         )
                       : const Icon(Icons.cancel_outlined, size: 24),
                   label: Text(
-                    _isCancelling ? 'CANCELLING...' : 'CANCEL SOS (I AM SAFE)',
+                    _isCancelling ? AppLocalizations.of(context).loading : AppLocalizations.of(context).cancelCountdown,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,

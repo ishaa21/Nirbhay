@@ -7,6 +7,7 @@ import '../services/location_update_service.dart';
 import 'fake_call_screen.dart';
 import 'safety_timer_screen.dart';
 import 'live_tracking_screen.dart';
+import '../l10n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QuickEscapeScreen
@@ -112,6 +113,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (_showDecoyView) {
       return _buildDecoyScreen();
     }
@@ -130,13 +132,13 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
 
               // ── Quick Action 1: Fake Call ─────────────────────────────
               _buildActionCard(
-                title: 'Simulate Fake Call',
-                subtitle: 'Ring your phone immediately or in 10s with a realistic caller screen to excuse yourself.',
-                badge: 'DISCREET EXIT',
+                title: l10n.translate('simulateFakeCall'),
+                subtitle: l10n.translate('simulateFakeCallSub'),
+                badge: l10n.translate('discreetExit'),
                 badgeColor: const Color(0xFF1976D2),
                 icon: Icons.phone_callback_rounded,
                 iconBg: const Color(0xFFE3F2FD),
-                buttonLabel: 'Launch Fake Call',
+                buttonLabel: l10n.translate('launchFakeCall'),
                 buttonColor: _primary,
                 onTap: () {
                   Navigator.of(context).push(
@@ -148,13 +150,13 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
 
               // ── Quick Action 2: Safety Timer ──────────────────────────
               _buildActionCard(
-                title: 'Safety Timer',
-                subtitle: 'Cloud watchdog counts down (5-60 min) and alerts guardians automatically if you don\'t check in.',
-                badge: 'AUTOMATIC WATCHDOG',
+                title: l10n.safetyTimer,
+                subtitle: l10n.translate('safetyTimerWatchdog'),
+                badge: l10n.translate('automaticWatchdog'),
                 badgeColor: const Color(0xFF7B1FA2),
                 icon: Icons.timer_outlined,
                 iconBg: const Color(0xFFF3E5F5),
-                buttonLabel: 'Open Safety Timer',
+                buttonLabel: l10n.translate('openSafetyTimer'),
                 buttonColor: _primary,
                 onTap: () {
                   Navigator.of(context).push(
@@ -166,13 +168,13 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
 
               // ── Quick Action 3: Live Location Sharing ─────────────────
               _buildActionCard(
-                title: 'Live Location Sharing',
-                subtitle: 'Share a secure web tracking link with your trusted emergency contacts.',
-                badge: 'GUARDIAN TRACKING',
+                title: l10n.translate('liveLocationSharing'),
+                subtitle: l10n.translate('liveLocationSharingSub'),
+                badge: l10n.translate('guardianTracking'),
                 badgeColor: _success,
                 icon: Icons.my_location_rounded,
                 iconBg: const Color(0xFFE8F5E9),
-                buttonLabel: 'Share Live Location',
+                buttonLabel: l10n.translate('shareLiveLocation'),
                 buttonColor: _primary,
                 onTap: () {
                   Navigator.of(context).push(
@@ -216,13 +218,13 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Quick Escape Hub',
+        Text(
+          AppLocalizations.of(context).quickEscape,
           style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: _primary, height: 1.2),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Fast-access tools to discreetly exit uncomfortable situations or initiate protection.',
+        Text(
+          AppLocalizations.of(context).quickEscapeSubtitle,
           style: TextStyle(fontSize: 14, color: _onSurfaceVariant, height: 1.4),
         ),
       ],
@@ -317,11 +319,10 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded, color: _error, size: 22),
-              SizedBox(width: 8),
-              Text(
-                'REAL EMERGENCY ONLY',
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: _error, size: 22),
+              const SizedBox(width: 8),
+              Text(AppLocalizations.of(context).translate('realEmergencyOnly'),
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _error, letterSpacing: 0.5),
               ),
             ],
@@ -341,7 +342,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.sos_rounded, color: Colors.white, size: 24),
               label: Text(
-                _isActivatingSos ? 'Dispatching...' : 'TRIGGER REAL EMERGENCY SOS',
+                _isActivatingSos ? 'Dispatching...' : AppLocalizations.of(context).translate('triggerRealEmergencySos'),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
               ),
               style: ElevatedButton.styleFrom(
@@ -360,7 +361,7 @@ class _QuickEscapeScreenState extends State<QuickEscapeScreen> {
       child: TextButton.icon(
         onPressed: () => setState(() => _showDecoyView = true),
         icon: const Icon(Icons.visibility_off_outlined, size: 18, color: _onSurfaceVariant),
-        label: const Text('Open Decoy Disguise Screen (Hide App)', style: TextStyle(fontSize: 12.5, color: _onSurfaceVariant)),
+        label: Text(AppLocalizations.of(context).translate('openDecoyDisguise'), style: TextStyle(fontSize: 12.5, color: _onSurfaceVariant)),
       ),
     );
   }
